@@ -21,6 +21,21 @@ export const pulleySettings = defineSettings({
   strands: int(2, 1, 4),
   loadLabel: label({ mode: 'text', text: 'm' }),
   loadSize: number(1, 0.5, 2),
+  // Vectors.
+  tension: bool(false),
+  tensionLabel: label({ mode: 'text', text: 'T' }),
+  gravity: bool(false),
+  aGravityLabel: label({ mode: 'text', text: 'm_1 g' }),
+  bGravityLabel: label({ mode: 'text', text: 'm_2 g' }),
+  loadGravityLabel: label({ mode: 'text', text: 'mg' }),
+  /** The normal force and friction on the object on a table or ramp. Friction points toward or away from the pulley. */
+  normal: bool(false),
+  normalLabel: label({ mode: 'text', text: 'F_N' }),
+  friction: choice('none', ['none', 'toward', 'away']),
+  frictionLabel: label({ mode: 'text', text: 'F_f' }),
+  /** Acceleration of every object. Forward is the way a hanging object falls (in a block and tackle, the load rising). */
+  acceleration: choice('none', ['none', 'forward', 'backward']),
+  accelerationLabel: label({ mode: 'text', text: 'a' }),
   mirror: bool(false),
   color: bool(false),
 })

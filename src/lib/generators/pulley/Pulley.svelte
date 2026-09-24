@@ -4,6 +4,7 @@
   // so they stay readable.
   import FigureLabel from '$lib/shared/FigureLabel.svelte'
   import ObjectShape from '$lib/shared/ObjectShape.svelte'
+  import VectorArrow from '$lib/shared/VectorArrow.svelte'
   import { mirrorTransform, mirrorX, palette } from '$lib/shared/figure'
   import { buildPulley, type Wheel } from './pulley'
   import type { PulleySettings } from './settings'
@@ -98,8 +99,12 @@
         <ObjectShape kind={o.kind} size={o.size} fill={p.object} stroke={p.ink} />
       </g>
     {/each}
+    {#each fig.vectors as v}<VectorArrow v={v.v} color={p.vector} />{/each}
   </g>
 
+  {#each fig.vectors as v}
+    <FigureLabel label={v.label} x={mx(v.labelAt.x)} y={v.labelAt.y + SIZE * 0.35} size={SIZE} color={p.vector} />
+  {/each}
   {#if fig.ramp}
     <FigureLabel label={settings.angleLabel} x={mx(fig.ramp.angleLabelAt.x)} y={fig.ramp.angleLabelAt.y + SIZE * 0.35} size={SIZE} color={p.ink} />
   {/if}

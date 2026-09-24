@@ -4,9 +4,9 @@
   // the text's baseline for anchor "middle", its left end for "start" and its
   // right end for "end". Everything is inline so the SVG exports cleanly.
   //
-  // With `italic` on, single letters are set in italics the way physics sets
-  // quantities (m, v, F, θ), while longer words like units (kg) stay upright.
-  import { labelRuns, type Label } from './label'
+  // With `italic` on, quantities are set in italics the way physics sets them
+  // (m, v, F, θ, mg), while words and units (kg) stay upright.
+  import { italicPieces, labelRuns, type Label } from './label'
 
   interface Props {
     label: Label
@@ -23,9 +23,7 @@
   }
   let { label, x, y, anchor = 'middle', size = 18, color = '#111827', blank = size * 2.4, italic = true, halo = true }: Props = $props()
 
-  /** A run split into pieces, with single letters marked for italics. */
-  const pieces = (text: string) =>
-    (text.match(/\p{L}+|[^\p{L}]+/gu) ?? []).map((t) => ({ t, italic: italic && /^\p{L}$/u.test(t) }))
+  const pieces = (text: string) => italicPieces(text).map((p) => ({ t: p.text, italic: italic && p.italic }))
 
   const SERIF = "'Times New Roman', Times, serif"
   const SMALL = 0.7

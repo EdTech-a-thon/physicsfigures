@@ -2,6 +2,8 @@
 // and a solid triangular head whose point is exactly at the tip. Vectors are
 // drawn about the right size, not to scale.
 
+import type { Label } from './label'
+
 export interface Segment {
   x1: number
   y1: number
@@ -12,6 +14,14 @@ export interface Segment {
 export interface Point {
   x: number
   y: number
+}
+
+/** A vector placed on a figure, with its label and where the label's middle goes. */
+export interface LabeledVector<K extends string = string> {
+  kind: K
+  v: Segment
+  label: Label
+  labelAt: Point
 }
 
 export const VECTOR_WIDTH = 3

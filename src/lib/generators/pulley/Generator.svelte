@@ -1,7 +1,7 @@
 <script lang="ts">
   // The Pulley Generator: the objects on the left, the figure on the right.
   // Settings live in the page address.
-  import { Box, Cog, Triangle } from '@lucide/svelte'
+  import { Box, Cog, MoveUpRight, Triangle } from '@lucide/svelte'
   import Choice from '$lib/shared/Choice.svelte'
   import { createGenerator } from '$lib/shared/generator.svelte'
   import GeneratorLayout from '$lib/shared/GeneratorLayout.svelte'
@@ -31,6 +31,29 @@
       ? `${shown(s.loadLabel)} held by ${s.strands} strand${s.strands === 1 ? '' : 's'}`
       : `${shown(s.aLabel)} and ${shown(s.bLabel)}${s.setup === 'atwood' && s.lower !== 'neither' ? ` · ${s.lower === 'a' ? 'left' : 'right'} lower` : ''}`,
   )
+  const onSurface = $derived(s.setup === 'table' || s.setup === 'ramp')
+  const vectorsSummary = $derived(
+    [
+      s.tension ? 'tension' : '',
+      s.gravity ? 'gravity' : '',
+      onSurface && s.normal ? 'normal force' : '',
+      onSurface && s.friction !== 'none' ? 'friction' : '',
+      s.acceleration !== 'none' ? 'acceleration' : '',
+    ]
+      .filter(Boolean)
+      .join(', ') || 'none',
+  )
+  // The gravity label for each object in this setup.
+  const gravityFields = $derived(
+    s.setup === 'tackle'
+      ? ([['loadGravityLabel', 'load']] as const)
+      : ([
+          ['aGravityLabel', names.a.toLowerCase()],
+          ['bGravityLabel', names.b.toLowerCase()],
+        ] as const),
+  )
+  const FORWARD = { atwood: 'Right falls', table: 'Hanging falls', ramp: 'Hanging falls', tackle: 'Load rises' }
+  const BACKWARD = { atwood: 'Left falls', table: 'Hanging rises', ramp: 'Hanging rises', tackle: 'Load falls' }
   const surfaceSummary = $derived(s.setup === 'ramp' ? `${s.angle}° · ${shown(s.angleLabel)} · ${s.surface}` : s.surface)
 </script>
 
@@ -106,9 +129,56 @@
         </div>
       </Section>
     {/if}
+
+    <Section title="Forces and motion" icon={MoveUpRight} summary={vectorsSummary}>
+      <div class="vector">
+        <label class="check"><input type="checkbox" bind:checked={gen.settings.tension} /> Tension</label>
+        {#if s.tension}<div class="field"><LabelField name="Tension label" bind:label={gen.settings.tensionLabel} /></div>{/if}
+      </div>
+      <div class="vector">
+        <label class="check"><input type="checkbox" bind:checked={gen.settings.gravity} /> Gravity</label>
+        {#if s.gravity}
+          {#each gravityFields as [key, whose] (key)}
+            <div class="field">On the {whose} <LabelField name="Gravity label on the {whose}" bind:label={gen.settings[key]} /></div>
+          {/each}
+        {/if}
+      </div>
+      {#if onSurface}
+        <div class="vector">
+          <label class="check"><input type="checkbox" bind:checked={gen.settings.normal} /> Normal force</label>
+          {#if s.normal}<div class="field"><LabelField name="Normal force label" bind:label={gen.settings.normalLabel} /></div>{/if}
+        </div>
+        <div class="vector">
+          <div class="field">
+            Friction
+            <Choice
+              name="Friction"
+              options={[['none', 'None'], ['toward', 'Toward the pulley'], ['away', 'Away from it']]}
+              bind:value={gen.settings.friction}
+            />
+          </div>
+          {#if s.friction !== 'none'}<div class="field"><LabelField name="Friction label" bind:label={gen.settings.frictionLabel} /></div>{/if}
+        </div>
+      {/if}
+      <div class="vector">
+        <div class="field">
+          Acceleration
+          <Choice
+            name="Acceleration"
+            options={[['none', 'None'], ['forward', FORWARD[s.setup]], ['backward', BACKWARD[s.setup]]]}
+            bind:value={gen.settings.acceleration}
+          />
+        </div>
+        {#if s.acceleration !== 'none'}<div class="field"><LabelField name="Acceleration label" bind:label={gen.settings.accelerationLabel} /></div>{/if}
+      </div>
+    </Section>
   {/snippet}
 
   {#snippet figure(id)}
     <Pulley settings={s} {id} />
   {/snippet}
 </GeneratorLayout>
+
+<style>
+  .vector + .vector { border-top: 1px solid var(--border); padding-top: 0.75rem; margin-top: 0.25rem; }
+</style>

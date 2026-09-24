@@ -6,7 +6,7 @@
 import type { Point } from '$lib/shared/field'
 import { labelRuns, type Label } from '$lib/shared/label'
 import { objectHeight, objectWidth, type ObjectKind } from '$lib/shared/objects'
-import { labelPoint, type Segment } from '$lib/shared/vector'
+import { labelPoint, type LabeledVector, type Segment } from '$lib/shared/vector'
 import type { InclineSettings } from './settings'
 
 export const WIDTH = 640
@@ -29,13 +29,7 @@ const MOTION_GAP = 20
 
 export type VectorKind = 'gravity' | 'normal' | 'friction' | 'applied' | 'velocity' | 'acceleration'
 
-export interface FigureVector {
-  kind: VectorKind
-  v: Segment
-  label: Label
-  /** The middle of its label. */
-  labelAt: Point
-}
+export type FigureVector = LabeledVector<VectorKind>
 
 export interface InclineFigure {
   width: number

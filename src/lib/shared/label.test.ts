@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { decodeLabel, encodeLabel, labelFromText, labelRuns, labelToText, typeLabel, type Label } from './label'
+import { decodeLabel, encodeLabel, italicPieces, labelFromText, labelRuns, labelToText, typeLabel, type Label } from './label'
 
 describe('typing a label', () => {
   test.each([
@@ -71,5 +71,18 @@ describe('a label in the page address', () => {
   test('a missing label is the default, and blank drops its text from the address', () => {
     expect(encodeLabel({ mode: 'blank', text: 'm_1' })).toBe('~')
     expect(decodeLabel(null, { mode: 'text', text: 'θ' })).toEqual({ mode: 'text', text: 'θ' })
+  })
+})
+
+describe('italics', () => {
+  const italic = (text: string) => italicPieces(text).filter((p) => p.italic).map((p) => p.text)
+  test('quantities in italics, units and words upright', () => {
+    expect(italic('mg')).toEqual(['mg'])
+    expect(italic('v')).toEqual(['v'])
+    expect(italic('θ')).toEqual(['θ'])
+    expect(italic('5 kg')).toEqual([])
+    expect(italic('20 cm')).toEqual([])
+    expect(italic('block')).toEqual([])
+    expect(italic('F = ma')).toEqual(['F', 'ma'])
   })
 })

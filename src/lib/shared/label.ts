@@ -154,6 +154,21 @@ export function labelRuns(text: string): Run[] {
   return runs
 }
 
+/** Unit words set upright even though they're short. */
+const UNITS = new Set(['kg', 'cm', 'mm', 'km', 'ms', 'Hz', 'kJ', 'kW', 'kN', 'eV', 'mA', 'mV', 'kV', 'Pa', 'Wb', 'mol', 'rad', 'kPa'])
+
+/**
+ * A run of label text split into pieces to set in italics or upright, the way
+ * physics sets quantities in italics (m, v, F, θ, mg) and words and units
+ * upright (kg, cm, "block").
+ */
+export function italicPieces(text: string): { text: string; italic: boolean }[] {
+  return (text.match(/\p{L}+|[^\p{L}]+/gu) ?? []).map((t) => ({
+    text: t,
+    italic: /^\p{L}{1,2}$/u.test(t) && !UNITS.has(t),
+  }))
+}
+
 /** A label in a page address: its text, "~" for a blank line, or empty for none. */
 export function encodeLabel(label: Label): string {
   if (label.mode === 'none') return ''

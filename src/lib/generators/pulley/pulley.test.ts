@@ -175,3 +175,97 @@ describe('block and tackle', () => {
     }
   })
 })
+
+describe('vectors', () => {
+  const unit = (v: { x1: number; y1: number; x2: number; y2: number }) => {
+    const len = Math.hypot(v.x2 - v.x1, v.y2 - v.y1)
+    return { x: (v.x2 - v.x1) / len, y: (v.y2 - v.y1) / len }
+  }
+  const along = (v: { x1: number; y1: number; x2: number; y2: number }, a: { x: number; y: number }, b: { x: number; y: number }) => {
+    const u = unit(v)
+    const len = Math.hypot(b.x - a.x, b.y - a.y)
+    return Math.abs(u.x * ((b.y - a.y) / len) - u.y * ((b.x - a.x) / len)) // 0 when parallel
+  }
+
+  test('none by default', () => {
+    for (const setup of ['atwood', 'table', 'ramp', 'tackle'] as const) expect(make({ setup }).vectors).toHaveLength(0)
+  })
+
+  test('tension at each end of each string, pointing along it', () => {
+    for (const setup of ['atwood', 'table', 'ramp'] as const) {
+      const f = make({ setup, tension: true })
+      const tensions = f.vectors.filter((v) => v.kind === 'tension')
+      expect(tensions).toHaveLength(4)
+      for (const t of tensions) {
+        const string = f.strings.find((st) => [st[0], st.at(-1)!].some((p) => Math.hypot(p.x - t.v.x1, p.y - t.v.y1) < 0.5))!
+        expect(string).toBeTruthy()
+        expect(along(t.v, string[0], string.at(-1)!)).toBeLessThan(1e-3)
+      }
+    }
+  })
+
+  test('tension on the object points away from it, up the string', () => {
+    const f = make({ tension: true })
+    for (const o of f.objects) {
+      const t = f.vectors.find((v) => v.kind === 'tension' && Math.abs(v.v.x1 - o.at.x) < 0.5 && Math.abs(v.v.y1 - (o.at.y - o.height)) < 0.5)!
+      expect(t.v.y2).toBeLessThan(t.v.y1)
+    }
+  })
+
+  test('a block and tackle labels the tension in every supporting strand', () => {
+    for (const strands of [1, 2, 3, 4]) {
+      const f = make({ setup: 'tackle', strands, tension: true })
+      const up = f.vectors.filter((v) => v.kind === 'tension' && v.v.y2 < v.v.y1)
+      expect(up).toHaveLength(strands)
+      for (const t of up) expect(t.label.text).toBe('T')
+    }
+  })
+
+  test('gravity straight down on every object; normal and friction only on the table or ramp', () => {
+    for (const setup of ['atwood', 'table', 'ramp', 'tackle'] as const) {
+      const f = make({ setup, gravity: true, normal: true, friction: 'away' })
+      const gravity = f.vectors.filter((v) => v.kind === 'gravity')
+      expect(gravity).toHaveLength(f.objects.length)
+      for (const g of gravity) {
+        expect(g.v.x2).toBeCloseTo(g.v.x1)
+        expect(g.v.y2).toBeGreaterThan(g.v.y1)
+      }
+      const onSurface = setup === 'table' || setup === 'ramp'
+      expect(f.vectors.some((v) => v.kind === 'normal')).toBe(onSurface)
+      expect(f.vectors.some((v) => v.kind === 'friction')).toBe(onSurface)
+    }
+    const ramp = make({ setup: 'ramp', angle: 30, normal: true, friction: 'away' })
+    const n = unit(ramp.vectors.find((v) => v.kind === 'normal')!.v)
+    expect((Math.atan2(-n.y, n.x) * 180) / Math.PI).toBeCloseTo(120, 0)
+    const fr = unit(ramp.vectors.find((v) => v.kind === 'friction')!.v)
+    expect((Math.atan2(-fr.y, fr.x) * 180) / Math.PI).toBeCloseTo(-150, 0) // down the slope, away from the pulley
+  })
+
+  test('acceleration: forward, the hanging object falls and the other moves toward the pulley', () => {
+    const f = make({ setup: 'table', acceleration: 'forward' })
+    const acc = f.vectors.filter((v) => v.kind === 'acceleration')
+    expect(acc).toHaveLength(2)
+    const [onTable, hangingDown] = acc
+    expect(onTable.v.x2).toBeGreaterThan(onTable.v.x1)
+    expect(hangingDown.v.y2).toBeGreaterThan(hangingDown.v.y1)
+    const atwood = make({ acceleration: 'forward' }).vectors.filter((v) => v.kind === 'acceleration')
+    expect(atwood[0].v.y2).toBeLessThan(atwood[0].v.y1) // left rises
+    expect(atwood[1].v.y2).toBeGreaterThan(atwood[1].v.y1) // right falls
+  })
+})
+
+test('every vector and label fits, above the ground, whatever the setup', () => {
+  for (const setup of ['atwood', 'table', 'ramp', 'tackle'] as const) {
+    for (const size of [1, 2]) {
+      const f = make({ setup, tension: true, gravity: true, normal: true, friction: 'away', acceleration: 'forward', aSize: size, bSize: size, loadSize: size, strands: 3 })
+      for (const v of f.vectors) {
+        for (const y of [v.v.y1, v.v.y2, v.labelAt.y + 12]) {
+          expect(y).toBeLessThanOrEqual(f.height)
+          expect(y).toBeGreaterThanOrEqual(0)
+        }
+      }
+      if (f.ground) for (const v of f.vectors.filter((v) => v.kind === 'gravity' && f.objects.some((o) => o.tilt === 0 && Math.abs(o.at.x - v.v.x1) < 1)))
+        expect(v.labelAt.y).toBeLessThan(f.ground.y1)
+    }
+  }
+})
