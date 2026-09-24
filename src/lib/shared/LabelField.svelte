@@ -1,19 +1,19 @@
 <script lang="ts">
-  // One piece of text on the figure: written text, a blank line for students
-  // to write on (titles only), or nothing at all.
+  // One label on the figure: written text, a blank line for students to write
+  // on, or nothing at all. Text is typed in the math field (LabelInput).
   import { Ban, PencilLine, Type, type LucideIcon } from '@lucide/svelte'
+  import type { Label, LabelMode } from './label'
+  import LabelInput from './LabelInput.svelte'
 
-  type Mode = 'text' | 'blank' | 'none'
   interface Props {
     name: string
-    mode: Mode
-    text: string
+    label: Label
     placeholder?: string
     blank?: boolean
   }
-  let { name, mode = $bindable(), text = $bindable(), placeholder = '', blank = true }: Props = $props()
+  let { name, label = $bindable(), placeholder = '', blank = true }: Props = $props()
 
-  const MODES = $derived<(readonly [Mode, string, LucideIcon])[]>([
+  const MODES = $derived<(readonly [LabelMode, string, LucideIcon])[]>([
     ['text', 'Text', Type],
     ...(blank ? ([['blank', 'Blank line', PencilLine]] as const) : []),
     ['none', 'None', Ban],
@@ -22,22 +22,22 @@
 
 <div class="label-field">
   <div class="segmented" role="radiogroup" aria-label={name}>
-    {#each MODES as [value, label, Icon]}
+    {#each MODES as [value, text, Icon]}
       <button
         type="button"
         role="radio"
-        aria-checked={mode === value}
-        class:on={mode === value}
-        onclick={() => (mode = value)}
+        aria-checked={label.mode === value}
+        class:on={label.mode === value}
+        onclick={() => (label.mode = value)}
       >
         <Icon size={15} aria-hidden="true" />
-        {label}
+        {text}
       </button>
     {/each}
   </div>
-  {#if mode === 'text'}
-    <input type="text" aria-label="{name} text" {placeholder} bind:value={text} />
-  {:else if mode === 'blank'}
+  {#if label.mode === 'text'}
+    <LabelInput aria-label="{name} text" {placeholder} bind:value={label.text} />
+  {:else if label.mode === 'blank'}
     <p class="note">Students write the {name.toLowerCase()} on a blank line.</p>
   {/if}
 </div>

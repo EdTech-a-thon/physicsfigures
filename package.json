@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "prepare": "svelte-kit sync || echo \"\"",
     "check": "svelte-kit sync && svelte-check",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "caret": "sh scripts/caret.sh"
   },
   "devDependencies": {
     "@sveltejs/adapter-vercel": "^6.3.4",
@@ -22,6 +23,9 @@
     "vitest": "^5.0.1"
   },
   "dependencies": {
+    "@caret-js/core": "file:vendor/caret-js-core-0.0.0.tgz",
+    "@caret-js/math": "file:vendor/caret-js-math-0.0.0.tgz",
+    "@caret-js/svelte": "file:vendor/caret-js-svelte-0.0.0.tgz",
     "@lucide/svelte": "^1.47.0"
   }
 }
