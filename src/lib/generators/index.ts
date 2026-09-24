@@ -5,6 +5,7 @@
 import type { Component } from 'svelte'
 import CoilMagnetPreview from './coil-and-magnet/Preview.svelte'
 import InclinedPlanePreview from './inclined-plane/Preview.svelte'
+import PulleyPreview from './pulley/Preview.svelte'
 
 export interface Generator {
   id: string
@@ -50,6 +51,20 @@ export const GENERATORS: Generator[] = [
       'rolling', 'mechanics', 'printable',
     ],
     Preview: InclinedPlanePreview,
+  },
+  {
+    id: 'pulley',
+    name: 'Pulley Generator',
+    path: '/pulley',
+    blurb: 'Objects on strings over pulleys, from an Atwood machine up.',
+    description:
+      'Make a printable pulley figure for your class: an Atwood machine, a block on a table or ramp tied over a pulley to a hanging mass, or a block and tackle, with the masses labeled or left blank, then copy it into a worksheet or test.',
+    keywords: [
+      'pulley', 'pulleys', 'atwood', 'atwood machine', 'string', 'rope', 'tension', 'hanging mass', 'block', 'table',
+      'ramp', 'block and tackle', 'mechanical advantage', 'strands', 'free body diagram', 'forces', 'newton',
+      "newton's laws", 'mechanics', 'printable',
+    ],
+    Preview: PulleyPreview,
   },
 ]
 
