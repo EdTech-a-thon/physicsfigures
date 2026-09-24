@@ -98,3 +98,51 @@ describe('field lines', () => {
     expect(top).toBeGreaterThan(0)
   })
 })
+
+describe('the meter', () => {
+  test('off by default, wired to both leads when on', () => {
+    expect(make().meter).toBeNull()
+    const f = make({ meter: true })
+    const m = f.meter!
+    expect(m.wires).toHaveLength(2)
+    // each wire starts at the end of a lead
+    const ends = f.coil.leads.map((l) => `${l.x2},${l.y2}`)
+    for (const w of m.wires) expect(ends).toContain(`${w[0].x},${w[0].y}`)
+    // and ends on the meter's edge
+    for (const w of m.wires) expect(Math.hypot(w.at(-1)!.x - m.cx, w.at(-1)!.y - m.cy)).toBeCloseTo(m.r, 0)
+  })
+
+  test('the needle leans left or right, stands up in the middle, or is left for students', () => {
+    expect(make({ meter: true, needle: 'left' }).meter!.needle).toBeLessThan(0)
+    expect(make({ meter: true, needle: 'right' }).meter!.needle).toBeGreaterThan(0)
+    expect(make({ meter: true, needle: 'center' }).meter!.needle).toBe(0)
+    expect(make({ meter: true, needle: 'blank' }).meter!.needle).toBeNull()
+  })
+
+  test('a coil of one turn still has room for its leads to reach the meter', () => {
+    const f = make({ turns: 1, meter: true })
+    const [a, b] = f.coil.leads
+    expect(b.x2 - a.x2).toBeGreaterThan(f.meter!.r * 2)
+    expect(f.left).toBeGreaterThanOrEqual(0)
+  })
+
+  test('it fits in the figure', () => {
+    const m = make({ meter: true }).meter!
+    expect(m.cy + m.r).toBeLessThan(make().height)
+  })
+})
+
+describe('current arrows', () => {
+  test('none by default; up or down the front of the coil', () => {
+    expect(make().currentArrows).toHaveLength(0)
+    const up = make({ current: 'up' }).currentArrows
+    expect(up.length).toBeGreaterThan(0)
+    for (const a of up) expect(a.angle).toBe(-90)
+    for (const a of make({ current: 'down' }).currentArrows) expect(a.angle).toBe(90)
+  })
+
+  test('not crowded on a long coil', () => {
+    expect(make({ current: 'up', turns: 20 }).currentArrows.length).toBeLessThanOrEqual(5)
+    expect(make({ current: 'up', turns: 3 }).currentArrows).toHaveLength(3)
+  })
+})

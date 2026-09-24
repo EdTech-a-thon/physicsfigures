@@ -1,7 +1,7 @@
 <script lang="ts">
   // The Coil and Magnet Generator: the coil, the magnet and its motion on the
   // left, the figure on the right. Settings live in the page address.
-  import { Cable, Magnet, MoveRight, Spline } from '@lucide/svelte'
+  import { Cable, Gauge, Magnet, MoveRight, Spline } from '@lucide/svelte'
   import Choice from '$lib/shared/Choice.svelte'
   import { createGenerator } from '$lib/shared/generator.svelte'
   import GeneratorLayout from '$lib/shared/GeneratorLayout.svelte'
@@ -21,6 +21,12 @@
   const magnetSummary = $derived(s.source === 'none' ? 'no magnet' : `${s.facing} pole facing the coil · ${DISTANCES[s.distance]}`)
   const fieldSummary = $derived(
     s.source === 'none' || s.fieldLines === 'none' ? 'none' : `${s.lineCount * 2} lines around the magnet`,
+  )
+  const NEEDLE = { left: 'needle left', center: 'needle centered', right: 'needle right', blank: 'needle blank' }
+  const meterSummary = $derived(
+    [s.meter ? `meter, ${NEEDLE[s.needle]}` : 'no meter', s.current === 'none' ? '' : `current ${s.current} the front`]
+      .filter(Boolean)
+      .join(' · '),
   )
   const motionSummary = $derived(
     s.source === 'none' ? 'no magnet' : s.motion === 'none' ? 'not moving' : `${s.motion} the coil · ${shown(s.motionLabel)}`,
@@ -94,6 +100,20 @@
         {/if}
       </Section>
     {/if}
+
+    <Section title="Meter and current" icon={Gauge} summary={meterSummary}>
+      <label class="check"><input type="checkbox" bind:checked={gen.settings.meter} /> Wire a meter to the coil</label>
+      {#if s.meter}
+        <div class="field">
+          Needle
+          <Choice name="Needle" options={[['left', 'Left'], ['center', 'Center'], ['right', 'Right'], ['blank', 'Blank']]} bind:value={gen.settings.needle} />
+        </div>
+      {/if}
+      <div class="field">
+        Current arrows on the coil
+        <Choice name="Current arrows" options={[['none', 'None'], ['up', 'Up the front'], ['down', 'Down the front']]} bind:value={gen.settings.current} />
+      </div>
+    </Section>
   {/snippet}
 
   {#snippet figure(id)}

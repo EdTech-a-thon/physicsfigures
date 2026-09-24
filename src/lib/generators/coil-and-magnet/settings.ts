@@ -17,6 +17,11 @@ export const coilSettings = defineSettings({
   fieldLines: choice('magnet', ['magnet', 'none']),
   /** Field lines above the magnet (and as many below). */
   lineCount: int(4, 1, 8),
+  meter: bool(false),
+  /** Which way the meter's needle leans, as the students see it (mirroring doesn't flip it). */
+  needle: choice('center', ['left', 'center', 'right', 'blank']),
+  /** Arrows on the front of the coil showing which way the current flows. */
+  current: choice('none', ['none', 'up', 'down']),
   mirror: bool(false),
   color: bool(false),
 })
