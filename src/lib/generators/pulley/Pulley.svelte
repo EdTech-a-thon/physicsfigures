@@ -24,6 +24,11 @@
     return `M${at(from)} A${wheel.r},${wheel.r} 0 ${to - from > 180 ? 1 : 0} 1 ${at(to)}`
   }
   const labelOf = (which: 'a' | 'b') => (which === 'a' ? settings.aLabel : settings.bLabel)
+  const DESCRIPTIONS = {
+    atwood: 'An Atwood machine: two objects hanging from a string over a pulley',
+    table: 'An object on a table tied over a pulley at its edge to a hanging object',
+    ramp: 'An object on a ramp tied over a pulley at its top to a hanging object',
+  }
 </script>
 
 <svg
@@ -32,7 +37,7 @@
   width={fig.width}
   height={fig.height}
   role="img"
-  aria-label="An Atwood machine: two objects hanging from a string over a pulley"
+  aria-label={DESCRIPTIONS[settings.setup]}
   id="{id}-pulley"
 >
   <rect class="paper" width={fig.width} height={fig.height} fill="#fff" />
@@ -44,6 +49,26 @@
         <line x1={x} y1={c.y1} x2={x + HATCH * 0.8} y2={c.y1 - HATCH} stroke={p.ink} stroke-width="1.3" />
       {/each}
     {/if}
+    {#if fig.ground}
+      {@const g = fig.ground}
+      <line x1={g.x1} y1={g.y1} x2={g.x2} y2={g.y2} stroke={p.ink} stroke-width="2.5" />
+      {#each fig.groundHatches as h}<line x1={h.x1} y1={h.y1} x2={h.x2} y2={h.y2} stroke={p.ink} stroke-width="1.3" />{/each}
+    {/if}
+    {#if fig.table}
+      {#each fig.table.legs as l}<rect x={l.x} y={l.y} width={l.w} height={l.h} fill={p.surface} stroke={p.ink} stroke-width="2" />{/each}
+      {@const t = fig.table.slab}
+      <rect x={t.x} y={t.y} width={t.w} height={t.h} fill={p.surface} stroke={p.ink} stroke-width="2.5" />
+    {/if}
+    {#if fig.platform}
+      {@const b = fig.platform}
+      <rect x={b.x} y={b.y} width={b.w} height={b.h} fill={p.surface} stroke={p.ink} stroke-width="2.5" />
+    {/if}
+    {#if fig.ramp}
+      {@const r = fig.ramp}
+      <path d="M{r.foot.x},{r.foot.y} L{r.corner.x},{r.corner.y} L{r.top.x},{r.top.y} Z" fill={p.surface} stroke={p.ink} stroke-width="2.5" stroke-linejoin="round" />
+      <path d={r.arc} transform="translate({r.foot.x} {r.foot.y})" stroke={p.ink} stroke-width="1.5" />
+    {/if}
+    {#each fig.hatches as h}<line x1={h.x1} y1={h.y1} x2={h.x2} y2={h.y2} stroke={p.ink} stroke-width="1.3" />{/each}
     {#each fig.rods as r}<line x1={r.x1} y1={r.y1} x2={r.x2} y2={r.y2} stroke={p.ink} stroke-width="3" />{/each}
 
     {#each fig.strings as string}
@@ -64,6 +89,9 @@
     {/each}
   </g>
 
+  {#if fig.ramp}
+    <FigureLabel label={settings.angleLabel} x={mx(fig.ramp.angleLabelAt.x)} y={fig.ramp.angleLabelAt.y + SIZE * 0.35} size={SIZE} color={p.ink} />
+  {/if}
   {#each fig.objects as o}
     <FigureLabel label={labelOf(o.which)} x={mx(o.middle.x)} y={o.middle.y + SIZE * 0.35} size={SIZE} color={p.ink} halo={false} blank={30} />
   {/each}

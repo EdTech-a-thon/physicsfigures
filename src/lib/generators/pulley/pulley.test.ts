@@ -51,3 +51,84 @@ describe('Atwood machine', () => {
     }
   })
 })
+
+const angleOf = (a: { x: number; y: number }, b: { x: number; y: number }) => (Math.atan2(-(b.y - a.y), b.x - a.x) * 180) / Math.PI
+
+describe('table and hanging mass', () => {
+  test('the object rests on the table; its string runs level to the top of the wheel, then straight down', () => {
+    for (const aSize of [0.5, 1, 2]) {
+      for (const aKind of ['block', 'cart'] as const) {
+        const f = make({ setup: 'table', aSize, aKind })
+        const [a, b] = f.objects
+        const [wheel] = f.wheels
+        expect(a.at.y).toBeCloseTo(f.table!.top)
+        const [level, hang] = f.strings
+        expect(level[0].y).toBeCloseTo(level[1].y) // level
+        expect(level[0].y).toBeCloseTo(a.middle.y) // from the middle of the object's side
+        expect(level[0].x).toBeCloseTo(a.at.x + a.width / 2)
+        expect(level[1].x).toBeCloseTo(wheel.cx) // to the top of the wheel
+        expect(level[1].y).toBeCloseTo(wheel.cy - wheel.r)
+        expect(hang[0].x).toBeCloseTo(wheel.cx + wheel.r) // down from its side
+        expect(hang.at(-1)!.x).toBeCloseTo(b.at.x)
+        expect(hang.at(-1)!.y).toBeCloseTo(b.at.y - b.height)
+      }
+    }
+  })
+
+  test('a rough table is hatched', () => {
+    expect(make({ setup: 'table' }).hatches).toHaveLength(0)
+    expect(make({ setup: 'table', surface: 'rough' }).hatches.length).toBeGreaterThan(5)
+  })
+})
+
+describe('ramp and hanging mass', () => {
+  test('the string runs parallel to the slope, touching the wheel', () => {
+    for (const angle of [10, 30, 60]) {
+      for (const aSize of [0.5, 1, 2]) {
+        const f = make({ setup: 'ramp', angle, aSize })
+        const [slope] = f.strings
+        const [wheel] = f.wheels
+        expect(angleOf(slope[0], slope[1])).toBeCloseTo(angle, 1)
+        // the wheel's middle is one radius from the string's line
+        const [p, q] = slope
+        const dist = Math.abs((q.x - p.x) * (wheel.cy - p.y) - (q.y - p.y) * (wheel.cx - p.x)) / Math.hypot(q.x - p.x, q.y - p.y)
+        expect(dist).toBeCloseTo(wheel.r, 0)
+        // and meets the object in the middle of its up-slope face
+        const a = f.objects[0]
+        expect(Math.hypot(p.x - a.middle.x, p.y - a.middle.y)).toBeCloseTo(a.width / 2, 0)
+      }
+    }
+  })
+
+  test('the hanging object is clear of the ramp and everything fits', () => {
+    for (const angle of [10, 12, 35, 60]) {
+      for (const [bSize, aKind, aSize] of [[0.5, 'block', 2], [2, 'block', 2], [1, 'cart', 1], [2, 'cart', 0.5]] as const) {
+        const f = make({ setup: 'ramp', angle, bSize, aSize, aKind })
+        const b = f.objects[1]
+        expect(b.at.x - b.width / 2).toBeGreaterThan(f.ramp!.top.x)
+        // every corner of every object, and the wheel, inside the figure
+        for (const o of f.objects) {
+          const t = (o.tilt * Math.PI) / 180
+          const u = { x: Math.cos(t), y: Math.sin(t) }
+          const n = { x: Math.sin(t), y: -Math.cos(t) }
+          for (const [du, dn] of [[-0.5, 0], [0.5, 0], [-0.5, 1], [0.5, 1]]) {
+            const x = o.at.x + u.x * du * o.width + n.x * dn * o.height
+            const y = o.at.y + u.y * du * o.width + n.y * dn * o.height
+            expect(x).toBeGreaterThanOrEqual(0)
+            expect(x).toBeLessThanOrEqual(f.width)
+            expect(y).toBeGreaterThanOrEqual(0)
+            expect(y).toBeLessThanOrEqual(f.height)
+          }
+        }
+        expect(f.wheels[0].cy - f.wheels[0].r).toBeGreaterThan(0)
+        // the hanging object is below its wheel, with string between
+        expect(b.at.y - b.height).toBeGreaterThan(f.wheels[0].cy + 20)
+      }
+    }
+  })
+})
+
+  test('a low ramp stands on a platform so the hanging object has room below the pulley', () => {
+    expect(make({ setup: 'ramp', angle: 45 }).platform).toBeNull()
+    expect(make({ setup: 'ramp', angle: 10 }).platform).not.toBeNull()
+  })
