@@ -200,15 +200,15 @@ const subscriptCommand: EditorCommand<any> = (editor) => {
   return true
 }
 
-/** A space typed at the end of a subscript or superscript steps out of it, so
- *  "F_N = 3" reads the way it's typed. */
+/** A space typed at the end of a subscript or superscript steps out of it and
+ *  is then typed there, so "F_N = 3" reads the way it's typed. */
 const spaceCommand: EditorCommand<any> = (editor) => {
   const head = editor.head
   if (!head || editor.hasRange || head.index === 0 || head.index !== head.strand.tokens.length) return false
   const o = owner(editor)
   if (!o) return false
   editor.select({ strandId: o.strand.id, tokenIndex: o.index + 1 })
-  return true
+  return false
 }
 
 export const commands: Record<string, EditorCommand<any>> = {
