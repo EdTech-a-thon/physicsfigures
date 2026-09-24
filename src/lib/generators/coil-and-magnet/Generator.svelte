@@ -18,13 +18,24 @@
   const DISTANCES = { outside: 'beside the coil', mouth: 'at the coil’s end', inside: 'inside the coil' }
 
   const coilSummary = $derived(`${s.turns} turn${s.turns === 1 ? '' : 's'}`)
-  const magnetSummary = $derived(s.source === 'none' ? 'no magnet' : `${s.facing} pole facing the coil · ${DISTANCES[s.distance]}`)
+  const magnetSummary = $derived(
+    s.source === 'none'
+      ? 'nothing'
+      : s.source === 'battery'
+        ? `battery, + on the ${s.batteryPlus}`
+        : `bar magnet, ${s.facing} pole facing the coil · ${DISTANCES[s.distance]}`,
+  )
+  const FIELDS = { magnet: 'the magnet’s', coil: 'the coil’s', both: 'the magnet’s and the coil’s', none: '' }
   const fieldSummary = $derived(
-    s.source === 'none' || s.fieldLines === 'none' ? 'none' : `${s.lineCount * 2} lines around the magnet`,
+    s.source === 'none' || s.fieldLines === 'none'
+      ? 'none'
+      : s.source === 'battery'
+        ? `the coil’s · ${s.lineCount * 2} lines`
+        : `${FIELDS[s.fieldLines]} · ${s.lineCount * 2} lines`,
   )
   const NEEDLE = { left: 'needle left', center: 'needle centered', right: 'needle right', blank: 'needle blank' }
   const meterSummary = $derived(
-    [s.meter ? `meter, ${NEEDLE[s.needle]}` : 'no meter', s.current === 'none' ? '' : `current ${s.current} the front`]
+    [s.meter ? `meter, ${NEEDLE[s.needle]}` : 'no meter', s.current === 'none' ? '' : s.source === 'battery' ? 'current shown' : `current ${s.current} the front`]
       .filter(Boolean)
       .join(' · '),
   )
@@ -45,11 +56,16 @@
       </label>
     </Section>
 
-    <Section title="Magnet" icon={Magnet} summary={magnetSummary}>
+    <Section title="Beside the coil" icon={Magnet} summary={magnetSummary}>
       <div class="field">
-        Beside the coil
-        <Choice name="Beside the coil" options={[['magnet', 'Bar magnet'], ['none', 'Nothing']]} bind:value={gen.settings.source} />
+        <Choice name="Beside the coil" options={[['magnet', 'Bar magnet'], ['battery', 'Battery'], ['none', 'Nothing']]} bind:value={gen.settings.source} />
       </div>
+      {#if s.source === 'battery'}
+        <div class="field">
+          Positive terminal
+          <Choice name="Positive terminal" options={[['left', 'Left'], ['right', 'Right']]} bind:value={gen.settings.batteryPlus} />
+        </div>
+      {/if}
       {#if s.source === 'magnet'}
         <div class="field">
           Pole facing the coil
@@ -69,19 +85,33 @@
       {/if}
     </Section>
 
-    {#if s.source === 'magnet'}
+    {#if s.source !== 'none'}
       <Section title="Field lines" icon={Spline} summary={fieldSummary}>
-        <label class="check">
-          <input
-            type="checkbox"
-            checked={gen.settings.fieldLines === 'magnet'}
-            onchange={(e) => (gen.settings.fieldLines = e.currentTarget.checked ? 'magnet' : 'none')}
-          />
-          Show the magnet’s field lines
-        </label>
-        {#if s.fieldLines === 'magnet'}
+        {#if s.source === 'magnet'}
+          <div class="field">
+            Show
+            <Choice
+              name="Field lines"
+              options={[['magnet', 'Magnet’s'], ['coil', 'Coil’s'], ['both', 'Both'], ['none', 'None']]}
+              bind:value={gen.settings.fieldLines}
+            />
+          </div>
+          {#if (s.fieldLines === 'coil' || s.fieldLines === 'both') && s.current === 'none' && s.motion === 'none'}
+            <p class="note">The coil has no field until the magnet moves or you show its current.</p>
+          {/if}
+        {:else}
+          <label class="check">
+            <input
+              type="checkbox"
+              checked={s.fieldLines !== 'none'}
+              onchange={(e) => (gen.settings.fieldLines = e.currentTarget.checked ? 'coil' : 'none')}
+            />
+            Show the coil’s field lines
+          </label>
+        {/if}
+        {#if s.fieldLines !== 'none'}
           <label class="field">
-            Lines above and below the magnet
+            Lines on each side
             <span class="slider">
               <input type="range" min="1" max="8" bind:value={gen.settings.lineCount} />
               <output>{s.lineCount}</output>
@@ -89,7 +119,9 @@
           </label>
         {/if}
       </Section>
+    {/if}
 
+    {#if s.source === 'magnet'}
       <Section title="Motion" icon={MoveRight} summary={motionSummary}>
         <div class="field">
           The magnet moves
@@ -109,10 +141,21 @@
           <Choice name="Needle" options={[['left', 'Left'], ['center', 'Center'], ['right', 'Right'], ['blank', 'Blank']]} bind:value={gen.settings.needle} />
         </div>
       {/if}
-      <div class="field">
-        Current arrows on the coil
-        <Choice name="Current arrows" options={[['none', 'None'], ['up', 'Up the front'], ['down', 'Down the front']]} bind:value={gen.settings.current} />
-      </div>
+      {#if s.source === 'battery'}
+        <label class="check">
+          <input
+            type="checkbox"
+            checked={s.current !== 'none'}
+            onchange={(e) => (gen.settings.current = e.currentTarget.checked ? 'down' : 'none')}
+          />
+          Show which way the current flows
+        </label>
+      {:else}
+        <div class="field">
+          Current arrows on the coil
+          <Choice name="Current arrows" options={[['none', 'None'], ['up', 'Up the front'], ['down', 'Down the front']]} bind:value={gen.settings.current} />
+        </div>
+      {/if}
     </Section>
   {/snippet}
 

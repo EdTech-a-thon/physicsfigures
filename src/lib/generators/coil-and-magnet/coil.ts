@@ -4,11 +4,12 @@
 // The coil is seen from the side as a helix. Each turn is a front half (drawn
 // over the magnet) and a back half (drawn behind it); the back halves slant,
 // so the wire runs on into the next turn. Both ends of the wire come off the
-// bottom of the coil as leads, which a meter below the coil can be wired to.
+// bottom of the coil as leads. Below the coil, a circuit can join them through
+// a battery, a meter, or both in series.
 
 import type { Point } from '$lib/shared/field'
 import type { Segment } from '$lib/shared/vector'
-import { magnetFieldLines, type FieldLine } from './fieldLines'
+import { coilFieldLines, magnetFieldLines, type FieldLine } from './fieldLines'
 import type { CoilSettings } from './settings'
 
 export const WIDTH = 640
@@ -27,8 +28,12 @@ const MOTION_LENGTH = 76
 const METER_R = 30
 /** How far the needle leans from upright, in degrees. */
 const NEEDLE_LEAN = 38
-/** Leads spread apart when the coil is too short for them to reach round the meter. */
-const LEAD_SPREAD = METER_R + 22
+/** The battery's two plates: the gap between them, and the long (+) plate's height. */
+export const BATTERY_GAP = 10
+export const BATTERY_PLATE = 36
+/** The circuit below the coil: from the leads down to its wire, and the space around each part. */
+const CIRCUIT_DROP = METER_R + 6
+const CIRCUIT_GAP = 26
 const MAX_CURRENT_ARROWS = 5
 const FIELD_MARGIN = 14
 
@@ -61,14 +66,20 @@ export interface CoilFigure {
   magnet: Magnet | null
   motion: Segment | null
   fieldLines: FieldLine[]
+  /** Wires below the coil, from each lead through the battery and meter. */
+  circuit: Point[][]
   meter: {
     cx: number
     cy: number
     r: number
-    /** Each wire from the end of a lead to the edge of the meter. */
-    wires: Point[][]
     /** The needle's lean from upright in degrees (negative is left), or null for students to draw. */
     needle: number | null
+  } | null
+  battery: {
+    cx: number
+    cy: number
+    /** Whether the positive (long) plate is on the left, before mirroring. */
+    plusLeft: boolean
   } | null
   /** Arrowheads on the front of the coil, pointing the way the current flows (angle in degrees). */
   currentArrows: { x: number; y: number; angle: number }[]
@@ -76,6 +87,25 @@ export interface CoilFigure {
 
 const f = (n: number) => Math.round(n * 100) / 100
 const k = 4 / 3 // cubic control distance for a half ellipse
+
+/**
+ * Which way current flows down the front of the coil, as the figure shows it,
+ * or null for none. With a battery, conventional current leaves its positive
+ * terminal: from the left-hand lead the wire runs down the front of every
+ * turn, and mirroring doesn't change up and down. With a magnet it's the
+ * teacher's current arrows, or else Lenz's law: the coil's near end takes the
+ * pole that opposes the magnet's motion.
+ */
+function currentDownFront(s: CoilSettings): boolean | null {
+  if (s.source === 'battery') return s.batteryPlus === 'left'
+  if (s.current !== 'none') return s.current === 'down'
+  if (s.source !== 'magnet' || s.motion === 'none') return null
+  // A north pole approaching makes the near end north; receding, south.
+  const nearEndNorth = (s.facing === 'N') === (s.motion === 'toward')
+  // The near end is the coil's left end before mirroring.
+  const northOnRightAsDrawn = !nearEndNorth !== s.mirror
+  return northOnRightAsDrawn
+}
 
 export function buildCoilFigure(s: CoilSettings): CoilFigure {
   const coilLength = (s.turns - 1) * PITCH
@@ -90,9 +120,14 @@ export function buildCoilFigure(s: CoilSettings): CoilFigure {
     magnet = { x: right - MAGNET_LENGTH, y: CY - MAGNET_HEIGHT / 2, length: MAGNET_LENGTH, height: MAGNET_HEIGHT, near: s.facing }
   }
 
-  // Where the leads end, relative to the first turn: straight down, or spread
-  // apart when the coil is too short for the meter's wires to reach around it.
-  const spread = s.meter ? Math.max(0, LEAD_SPREAD - coilLength / 2) : 0
+  // The parts in the circuit below the coil, left to right, and how wide each is.
+  const parts: ('battery' | 'meter')[] = []
+  if (s.source === 'battery') parts.push('battery')
+  if (s.meter) parts.push('meter')
+  const widthOf = (part: 'battery' | 'meter') => (part === 'meter' ? METER_R * 2 : BATTERY_GAP)
+  const needed = parts.reduce((sum, p) => sum + widthOf(p), 0) + CIRCUIT_GAP * (parts.length + 1)
+  // The leads spread apart when the coil is too short for the circuit to fit between them.
+  const spread = parts.length ? Math.max(0, (needed - coilLength) / 2) : 0
   const leadEnds = [-spread, coilLength + spread]
 
   const drawnLeft = Math.min(coilLeft - LOOP_RX * k, coilLeft + leadEnds[0] - 6, magnet ? magnet.x : Infinity)
@@ -113,28 +148,32 @@ export function buildCoilFigure(s: CoilSettings): CoilFigure {
   })
   const leads: Segment[] = [xs[0], xs.at(-1)!].map((x, i) => ({ x1: f(x), y1: bottom, x2: f(coilLeft + leadEnds[i]), y2: bottom + LEAD }))
 
+  // The circuit: down from each lead to one wire, with the parts spaced evenly along it.
   let meter: CoilFigure['meter'] = null
-  if (s.meter) {
-    const cx = f(coilLeft + coilLength / 2)
-    const cy = bottom + LEAD + METER_R + 6
-    // Down from each lead, then across to the side of the meter.
-    const wires = leads.map((l, i) => [
-      { x: l.x2, y: l.y2 },
-      { x: l.x2, y: cy },
-      { x: f(cx + (i === 0 ? -METER_R : METER_R)), y: cy },
-    ])
-    const needle = s.needle === 'blank' ? null : s.needle === 'left' ? -NEEDLE_LEAN : s.needle === 'right' ? NEEDLE_LEAN : 0
-    meter = { cx, cy, r: METER_R, wires, needle }
+  let battery: CoilFigure['battery'] = null
+  const circuit: Point[][] = []
+  if (parts.length) {
+    const wireY = bottom + LEAD + CIRCUIT_DROP
+    const [from, to] = [leads[0].x2, leads[1].x2]
+    const slot = (to - from) / (parts.length + 1)
+    let wire: Point[] = [{ x: from, y: leads[0].y2 }, { x: from, y: wireY }]
+    parts.forEach((part, i) => {
+      const cx = f(from + slot * (i + 1))
+      const half = widthOf(part) / 2
+      wire.push({ x: f(cx - half), y: wireY })
+      circuit.push(wire)
+      wire = [{ x: f(cx + half), y: wireY }]
+      if (part === 'meter') {
+        const needle = s.needle === 'blank' ? null : s.needle === 'left' ? -NEEDLE_LEAN : s.needle === 'right' ? NEEDLE_LEAN : 0
+        meter = { cx, cy: wireY, r: METER_R, needle }
+      } else {
+        battery = { cx, cy: wireY, plusLeft: s.batteryPlus === 'left' }
+      }
+    })
+    wire.push({ x: to, y: wireY }, { x: to, y: leads[1].y2 })
+    // Each wire runs away from a lead, so the last one is turned around.
+    circuit.push(wire.reverse())
   }
-
-  // On the rightmost point of some front halves, spread along the coil.
-  const every = Math.ceil(s.turns / MAX_CURRENT_ARROWS)
-  const currentArrows =
-    s.current === 'none'
-      ? []
-      : xs
-          .filter((_, i) => i % every === Math.floor((every - 1) / 2))
-          .map((x) => ({ x: f(x + LOOP_RX), y: CY, angle: s.current === 'up' ? -90 : 90 }))
 
   let motion: Segment | null = null
   if (magnet && s.motion !== 'none') {
@@ -145,9 +184,26 @@ export function buildCoilFigure(s: CoilSettings): CoilFigure {
     motion = { x1: f(mid - (dir * MOTION_LENGTH) / 2), y1: y, x2: f(mid + (dir * MOTION_LENGTH) / 2), y2: y }
   }
 
-  // The outermost field line passes just inside the top of the figure.
-  const fieldLines =
-    magnet && s.fieldLines === 'magnet' ? magnetFieldLines(magnet, s.lineCount, magnet.y - FIELD_MARGIN) : []
+  const down = currentDownFront(s)
+
+  // On the rightmost point of some front halves, spread along the coil.
+  const every = Math.ceil(s.turns / MAX_CURRENT_ARROWS)
+  const showCurrent = s.current !== 'none' && down !== null
+  const currentArrows = showCurrent
+    ? xs.filter((_, i) => i % every === Math.floor((every - 1) / 2)).map((x) => ({ x: f(x + LOOP_RX), y: CY, angle: down ? 90 : -90 }))
+    : []
+
+  // Field lines. The outermost magnet loop passes just inside the top of the figure.
+  const showMagnetField = magnet && (s.fieldLines === 'magnet' || s.fieldLines === 'both')
+  const showCoilField = s.source === 'battery' ? s.fieldLines !== 'none' : s.fieldLines === 'coil' || s.fieldLines === 'both'
+  const fieldLines: FieldLine[] = []
+  if (showMagnetField) fieldLines.push(...magnetFieldLines(magnet!, s.lineCount, magnet!.y - FIELD_MARGIN))
+  if (showCoilField && down !== null) {
+    // Current down the front makes the right-hand end north, as drawn; the
+    // lines are laid out before mirroring, so a mirrored figure swaps ends.
+    const northRight = down !== s.mirror
+    fieldLines.push(...coilFieldLines({ left: xs[0], right: xs.at(-1)!, cy: CY, r: COIL_R }, s.lineCount, northRight))
+  }
 
   return {
     width: WIDTH,
@@ -159,7 +215,9 @@ export function buildCoilFigure(s: CoilSettings): CoilFigure {
     magnet,
     motion,
     fieldLines,
+    circuit,
     meter,
+    battery,
     currentArrows,
   }
 }

@@ -6,10 +6,11 @@
 // shape wherever the magnet is, so they are traced once per count, around a
 // magnet at the origin, and moved.
 
-import { arrowAlong, poleFaceField, traceThrough, type Point } from '$lib/shared/field'
+import { arrowAlong, poleFaceField, traceLine, traceThrough, type Field, type Point } from '$lib/shared/field'
 
 export interface FieldLine {
-  kind: 'loop' | 'axis'
+  /** Around the magnet, along its axis, or the coil's own: through it, and around outside. */
+  kind: 'loop' | 'axis' | 'inside' | 'outside'
   points: Point[]
   arrow: { x: number; y: number; angle: number } | null
 }
@@ -74,4 +75,89 @@ export function magnetFieldLines(m: MagnetBox, count: number, reach: number): Fi
     },
   ]
   return [...loops, ...axis]
+}
+
+/** A point `distance` along a line, and which way the line points there. */
+function arrowAt(points: Point[], distance: number): FieldLine['arrow'] {
+  let walked = 0
+  for (let i = 1; i < points.length; i++) {
+    const a = points[i - 1]
+    const b = points[i]
+    walked += Math.hypot(b.x - a.x, b.y - a.y)
+    if (walked >= distance) return { x: b.x, y: b.y, angle: (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI }
+  }
+  return arrowAlong(points)
+}
+
+const coilCache = new Map<string, FieldLine[]>()
+/** How far outside an end each outside line starts, clear of the end's own sampled points. */
+const START = 3
+
+/**
+ * The coil's own field lines, for a coil from x = 0 to `length` around y = 0
+ * with its north end on the right. Outside, a coil carrying a current has the
+ * field of a bar magnet whose ends are the coil's ends; inside, its lines run
+ * straight along it from the south end to the north end. Each line starts
+ * inside, evenly spaced across the coil, and is traced on round the outside:
+ * lines near the wall loop back close by, lines near the middle run off the
+ * figure, the way textbooks draw a solenoid.
+ */
+function coilLinesNorthRight(length: number, r: number, count: number): FieldLine[] {
+  const key = `${length},${r},${count}`
+  const hit = coilCache.get(key)
+  if (hit) return hit
+  const field: Field = poleFaceField(
+    [
+      { x: length, y0: -r, y1: r, q: 1 },
+      { x: 0, y0: -r, y1: r, q: -1 },
+    ],
+    7,
+    true,
+  )
+  const inCoil = (p: Point) => p.x > -0.5 && p.x < length + 0.5 && Math.abs(p.y) < r
+  const bounds = { left: -1500, right: 1500 + length, top: -1500, bottom: 1500 }
+  const n = count * 2
+  const lines: FieldLine[] = []
+  for (let j = 0; j < n; j++) {
+    const y = ((j + 0.5) / n - 0.5) * 2 * r * 0.84
+    const out = traceLine(field, { x: length + START, y }, { stop: inCoil, bounds })
+    const end = out.at(-1)!
+    if (inCoil(end)) {
+      // Back round into the coil: one closed loop. A line near the wall curls
+      // round the wire and comes back in through the side, not the south end,
+      // so the inside part runs from wherever it came back in.
+      const from = end.x < 1 ? { x: 0, y } : end
+      lines.push({ kind: 'inside', points: [from, { x: length, y }], arrow: insideArrow(from, { x: length, y }) })
+      lines.push({ kind: 'outside', points: out, arrow: arrowAlong(out) })
+    } else {
+      lines.push({ kind: 'inside', points: [{ x: 0, y }, { x: length, y }], arrow: insideArrow({ x: 0, y }, { x: length, y }) })
+      // Off the figure; the line coming back into the south end is its own piece.
+      lines.push({ kind: 'outside', points: out, arrow: arrowAt(out, 60) })
+      const back = traceLine((px, py) => {
+        const [bx, by] = field(px, py)
+        return [-bx, -by]
+      }, { x: -START, y }, { stop: inCoil, bounds }).reverse()
+      lines.push({ kind: 'outside', points: back, arrow: arrowAt(back, Math.max(0, lengthOf(back) - 60)) })
+    }
+  }
+  coilCache.set(key, lines)
+  return lines
+}
+
+/** An arrowhead partway along a line inside the coil, toward its north end. */
+function insideArrow(a: Point, b: Point): FieldLine['arrow'] {
+  return { x: a.x + (b.x - a.x) * 0.62, y: a.y + (b.y - a.y) * 0.62, angle: (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI }
+}
+
+const lengthOf = (points: Point[]) => points.reduce((sum, p, i) => (i ? sum + Math.hypot(p.x - points[i - 1].x, p.y - points[i - 1].y) : 0), 0)
+
+/** The coil's own field lines in figure coordinates. A one-turn coil is treated as a short one, so it still has two ends. */
+export function coilFieldLines(coil: { left: number; right: number; cy: number; r: number }, count: number, northRight: boolean): FieldLine[] {
+  const length = Math.max(coil.right - coil.left, 26)
+  const left = (coil.left + coil.right) / 2 - length / 2
+  return coilLinesNorthRight(length, coil.r, count).map((line) => {
+    const place = (p: Point) => ({ x: left + (northRight ? p.x : length - p.x), y: coil.cy + p.y })
+    const arrow = line.arrow && { ...place(line.arrow), angle: northRight ? line.arrow.angle : 180 - line.arrow.angle }
+    return { kind: line.kind, points: line.points.map(place), arrow }
+  })
 }

@@ -104,12 +104,12 @@ describe('the meter', () => {
     expect(make().meter).toBeNull()
     const f = make({ meter: true })
     const m = f.meter!
-    expect(m.wires).toHaveLength(2)
+    expect(f.circuit).toHaveLength(2)
     // each wire starts at the end of a lead
     const ends = f.coil.leads.map((l) => `${l.x2},${l.y2}`)
-    for (const w of m.wires) expect(ends).toContain(`${w[0].x},${w[0].y}`)
+    for (const w of f.circuit) expect(ends).toContain(`${w[0].x},${w[0].y}`)
     // and ends on the meter's edge
-    for (const w of m.wires) expect(Math.hypot(w.at(-1)!.x - m.cx, w.at(-1)!.y - m.cy)).toBeCloseTo(m.r, 0)
+    for (const w of f.circuit) expect(Math.hypot(w.at(-1)!.x - m.cx, w.at(-1)!.y - m.cy)).toBeCloseTo(m.r, 0)
   })
 
   test('the needle leans left or right, stands up in the middle, or is left for students', () => {
@@ -144,5 +144,75 @@ describe('current arrows', () => {
   test('not crowded on a long coil', () => {
     expect(make({ current: 'up', turns: 20 }).currentArrows.length).toBeLessThanOrEqual(5)
     expect(make({ current: 'up', turns: 3 }).currentArrows).toHaveLength(3)
+  })
+})
+
+describe('a battery instead of a magnet', () => {
+  test('no magnet or motion; the battery is wired to the coil', () => {
+    const f = make({ source: 'battery' })
+    expect(f.magnet).toBeNull()
+    expect(f.motion).toBeNull()
+    expect(f.battery).not.toBeNull()
+    const ends = f.coil.leads.map((l) => `${l.x2},${l.y2}`)
+    for (const w of f.circuit) expect(ends).toContain(`${w[0].x},${w[0].y}`)
+  })
+
+  test('with a meter too, both sit in the circuit below the coil, side by side', () => {
+    const f = make({ source: 'battery', meter: true })
+    expect(f.battery!.cy).toBe(f.meter!.cy)
+    expect(Math.abs(f.battery!.cx - f.meter!.cx)).toBeGreaterThan(f.meter!.r + 10)
+  })
+})
+
+/** Which end of the coil the coil's own field makes north, as drawn in the figure. */
+function coilNorth(over: Partial<typeof coilSettings.defaults>) {
+  const f = make(over)
+  const inside = f.fieldLines.find((l) => l.kind === 'inside')
+  if (!inside) return null
+  const toward = inside.points.at(-1)!.x > inside.points[0].x ? 'right' : 'left'
+  // Mirroring flips the drawing, so flip back to what the figure shows.
+  return over.mirror ? (toward === 'right' ? 'left' : 'right') : toward
+}
+
+describe("the coil's own field", () => {
+  test('current down the front of the coil makes its right-hand end north (right-hand rule)', () => {
+    expect(coilNorth({ source: 'battery', batteryPlus: 'left', fieldLines: 'coil' })).toBe('right')
+    expect(coilNorth({ source: 'battery', batteryPlus: 'right', fieldLines: 'coil' })).toBe('left')
+  })
+
+  test('the right-hand rule still holds on a mirrored figure', () => {
+    for (const batteryPlus of ['left', 'right'] as const) {
+      const f = make({ source: 'battery', batteryPlus, fieldLines: 'coil', current: 'up', mirror: true })
+      // current arrows follow the battery; down the front means north on the right as seen
+      const down = f.currentArrows[0].angle === 90
+      expect(coilNorth({ source: 'battery', batteryPlus, fieldLines: 'coil', mirror: true })).toBe(down ? 'right' : 'left')
+    }
+  })
+
+  test("with a magnet, the coil's field follows the current arrows", () => {
+    expect(coilNorth({ fieldLines: 'coil', current: 'down' })).toBe('right')
+    expect(coilNorth({ fieldLines: 'coil', current: 'up' })).toBe('left')
+  })
+
+  test("with no current arrows, it follows Lenz's law: the coil opposes the magnet's motion", () => {
+    // north approaching: the near (left) end becomes north and pushes back
+    expect(coilNorth({ fieldLines: 'coil', facing: 'N', motion: 'toward' })).toBe('left')
+    expect(coilNorth({ fieldLines: 'coil', facing: 'N', motion: 'away' })).toBe('right')
+    expect(coilNorth({ fieldLines: 'coil', facing: 'S', motion: 'toward' })).toBe('right')
+    expect(coilNorth({ fieldLines: 'coil', facing: 'N', motion: 'toward', mirror: true })).toBe('right')
+    // a magnet that isn't moving makes no current, so no field
+    expect(coilNorth({ fieldLines: 'coil', motion: 'none' })).toBeNull()
+  })
+
+  test('both fields, or just one', () => {
+    const both = make({ fieldLines: 'both', current: 'down' }).fieldLines
+    expect(both.some((l) => l.kind === 'loop')).toBe(true)
+    expect(both.some((l) => l.kind === 'inside')).toBe(true)
+    expect(make({ fieldLines: 'magnet', current: 'down' }).fieldLines.some((l) => l.kind === 'inside')).toBe(false)
+  })
+
+  test("the coil's field lines never cross each other", () => {
+    const lines = make({ source: 'battery', fieldLines: 'coil', lineCount: 4 }).fieldLines.map((l) => l.points)
+    for (let i = 0; i < lines.length; i++) for (let j = i + 1; j < lines.length; j++) expect(crosses(lines[i], lines[j])).toBe(false)
   })
 })

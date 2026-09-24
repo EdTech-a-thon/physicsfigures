@@ -23,23 +23,54 @@ export interface Face {
   q: number
 }
 
-export function poleFaceField(faces: Face[], samples = 9): Field {
-  const sources = faces.flatMap((f) =>
-    Array.from({ length: samples }, (_, i) => ({ x: f.x, y: f.y0 + ((i + 0.5) / samples) * (f.y1 - f.y0), q: f.q / samples })),
-  )
+/**
+ * The field of charged end faces. A bar magnet's face is sampled along its
+ * height; a coil's end is round, so with `disc` each face is a disc (seen
+ * edge-on as the segment y0–y1), sampled in rings, which matters for a short
+ * coil or a single loop.
+ */
+export function poleFaceField(faces: Face[], samples = 9, disc = false): Field {
+  const sources = faces.flatMap((f) => (disc ? discSources(f, samples) : stripSources(f, samples)))
   return (x, y) => {
     let bx = 0
     let by = 0
     for (const s of sources) {
       const dx = x - s.x
       const dy = y - s.y
-      const r2 = dx * dx + dy * dy + 1e-6
+      const r2 = dx * dx + dy * dy + s.z * s.z + 1e-6
       const k = s.q / (r2 * Math.sqrt(r2))
       bx += k * dx
       by += k * dy
     }
     return [bx, by]
   }
+}
+
+interface Source {
+  x: number
+  y: number
+  z: number
+  q: number
+}
+
+const stripSources = (f: Face, samples: number): Source[] =>
+  Array.from({ length: samples }, (_, i) => ({ x: f.x, y: f.y0 + ((i + 0.5) / samples) * (f.y1 - f.y0), z: 0, q: f.q / samples }))
+
+/** Rings across a disc, with more points on the bigger rings so each point stands for the same area. */
+function discSources(f: Face, rings: number): Source[] {
+  const cy = (f.y0 + f.y1) / 2
+  const radius = Math.abs(f.y1 - f.y0) / 2
+  const points: { y: number; z: number }[] = []
+  for (let i = 0; i < rings; i++) {
+    const rho = ((i + 0.5) / rings) * radius
+    const around = Math.max(6, Math.round(6 * (i + 0.5) * 2))
+    for (let j = 0; j < around; j++) {
+      const phi = ((j + 0.5) / around) * 2 * Math.PI
+      points.push({ y: cy + rho * Math.cos(phi), z: rho * Math.sin(phi) })
+    }
+  }
+  // Weight each ring's points by the ring's share of the area.
+  return points.map((p) => ({ x: f.x, y: p.y, z: p.z, q: f.q / points.length }))
 }
 
 interface TraceOptions {

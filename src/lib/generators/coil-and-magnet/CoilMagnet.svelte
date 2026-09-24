@@ -7,7 +7,7 @@
   import { SANS, mirrorTransform, mirrorX, palette } from '$lib/shared/figure'
   import { linePath } from '$lib/shared/field'
   import { labelPoint } from '$lib/shared/vector'
-  import { buildCoilFigure } from './coil'
+  import { BATTERY_GAP, BATTERY_PLATE, buildCoilFigure } from './coil'
   import type { CoilSettings } from './settings'
 
   let { settings, id = 'c' }: { settings: CoilSettings; id?: string } = $props()
@@ -45,6 +45,10 @@
     return `M${at(-50)} A${r},${r} 0 0 1 ${at(50)}`
   }
 
+  // With both fields showing, the coil's lines are dashed so the two read apart.
+  const bothFields = $derived(fig.fieldLines.some((l) => l.kind === 'loop') && fig.fieldLines.some((l) => l.kind === 'inside'))
+  const dashed = (line: (typeof fig.fieldLines)[number]) => bothFields && (line.kind === 'inside' || line.kind === 'outside')
+
   const POLE_SIZE = 24
   const VECTOR_LABEL_SIZE = 22
   // Above the arrow whichever way it points (side 1 is above a rightward vector).
@@ -53,6 +57,7 @@
   const description = $derived(
     [
       `A coil of ${settings.turns} turn${settings.turns === 1 ? '' : 's'}`,
+      fig.battery ? 'wired to a battery' : '',
       fig.magnet ? `with a bar magnet ${settings.distance === 'inside' ? 'inside it' : settings.distance === 'mouth' ? 'at its end' : 'beside it'}` : '',
       fig.motion ? `moving ${settings.motion === 'toward' ? 'toward' : 'away from'} the coil` : '',
     ]
@@ -73,13 +78,15 @@
   <defs>
     <clipPath id="{id}-clip"><rect width={fig.width} height={fig.height} /></clipPath>
   </defs>
-  <rect width={fig.width} height={fig.height} fill="#fff" />
+  <rect class="paper" width={fig.width} height={fig.height} fill="#fff" />
   <g transform={mirrorTransform(settings.mirror, fig.width)} fill="none" stroke-linecap="round">
     {#each fig.coil.back as d}<path {d} stroke={p.hidden} stroke-width="2.5" />{/each}
 
     {#if fig.fieldLines.length}
       <g clip-path="url(#{id}-clip)">
-        {#each fig.fieldLines as line}<path d={linePath(line.points)} stroke={p.field} stroke-width="1.6" />{/each}
+        {#each fig.fieldLines as line}
+          <path d={linePath(line.points)} stroke={p.field} stroke-width="1.6" stroke-dasharray={dashed(line) ? '6 5' : undefined} />
+        {/each}
         {#each fig.fieldLines as line}
           {#if line.arrow}
             <polygon points="6,0 -5,-5 -5,5" fill={p.field} transform="translate({line.arrow.x} {line.arrow.y}) rotate({line.arrow.angle})" />
@@ -113,11 +120,18 @@
       />
     {/each}
 
+    {#each fig.circuit as w}
+      <polyline points={w.map((q) => `${q.x},${q.y}`).join(' ')} stroke={p.ink} stroke-width="2.5" stroke-linejoin="round" />
+    {/each}
+    {#if fig.battery}
+      {@const b = fig.battery}
+      {@const plus = b.cx + (b.plusLeft ? -1 : 1) * (BATTERY_GAP / 2)}
+      {@const minus = b.cx + (b.plusLeft ? 1 : -1) * (BATTERY_GAP / 2)}
+      <line x1={plus} y1={b.cy - BATTERY_PLATE / 2} x2={plus} y2={b.cy + BATTERY_PLATE / 2} stroke={p.ink} stroke-width="2.5" stroke-linecap="butt" />
+      <line x1={minus} y1={b.cy - BATTERY_PLATE / 4} x2={minus} y2={b.cy + BATTERY_PLATE / 4} stroke={p.ink} stroke-width="6" stroke-linecap="butt" />
+    {/if}
     {#if fig.meter}
       {@const m = fig.meter}
-      {#each m.wires as w}
-        <polyline points={w.map((q) => `${q.x},${q.y}`).join(' ')} stroke={p.ink} stroke-width="2.5" stroke-linejoin="round" />
-      {/each}
       <circle cx={m.cx} cy={m.cy} r={m.r} fill="#fff" stroke={p.ink} stroke-width="2.5" />
       <!-- The scale the needle swings across. -->
       <path d={scale(m)} stroke={p.ink} stroke-width="1.5" />
@@ -136,6 +150,21 @@
 
     {#if fig.motion}<VectorArrow v={fig.motion} color={p.vector} />{/if}
   </g>
+
+  {#if fig.battery}
+    {@const b = fig.battery}
+    {#each [[b.plusLeft ? -1 : 1, '+'], [b.plusLeft ? 1 : -1, '−']] as [side, sign]}
+      <text
+        x={mx(b.cx + Number(side) * (BATTERY_GAP / 2 + 9))}
+        y={b.cy - BATTERY_PLATE / 2 - 4}
+        text-anchor="middle"
+        font-family={SANS}
+        font-size="17"
+        font-weight="bold"
+        fill={p.ink}>{sign}</text
+      >
+    {/each}
+  {/if}
 
   {#if fig.meter}
     <!-- The needle reads the way the teacher set it, so it is drawn unmirrored. -->

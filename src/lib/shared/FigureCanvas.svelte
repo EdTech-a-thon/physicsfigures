@@ -76,6 +76,9 @@
   }
   .sheet { position: relative; padding: 1rem; display: flex; justify-content: center; }
   .sheet :global(svg) { max-height: 74vh; width: auto; max-width: 100%; }
+  /* A faint edge round the figure's white background shows what will be copied.
+     It's page CSS, so exported pictures don't have it. */
+  .sheet :global(.paper) { stroke: var(--border); stroke-width: 1.5; }
   .status {
     position: absolute; left: 50%; bottom: 0.9rem; transform: translate(-50%, 0.4rem);
     max-width: calc(100% - 2rem); margin: 0; padding: 0.45rem 0.85rem; border-radius: 999px;
