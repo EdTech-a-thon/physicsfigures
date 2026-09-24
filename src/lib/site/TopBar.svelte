@@ -1,10 +1,10 @@
-<script>
+<script lang="ts">
   // On every page: the Physics Figures name (back to the directory), the current
   // generator's name, and the teacher.dev credit linking out to teacher.dev.
   import { ChevronRight } from '@lucide/svelte'
   import { page } from '$app/state'
-  import { findGenerator } from '$lib/generators/index.js'
-  import { SITE_NAME } from './config.js'
+  import { findGenerator } from '$lib/generators'
+  import { SITE_NAME } from './config'
 
   const current = $derived(findGenerator(page.url.pathname))
 </script>

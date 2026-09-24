@@ -18,13 +18,24 @@ import { onMount } from 'svelte'
 
 const LIMIT = 100
 
-export function createHistory({ read, write, keyOf, tidy, storageKey, delay = 500 }) {
-  let past = $state.raw([])
-  let future = $state.raw([])
+interface HistoryOptions<S> {
+  read: () => S
+  write: (snap: S) => void
+  keyOf: (snap: S) => string
+  tidy: (snap: unknown) => S
+  storageKey: string
+  delay?: number
+}
+
+export type History = ReturnType<typeof createHistory>
+
+export function createHistory<S>({ read, write, keyOf, tidy, storageKey, delay = 500 }: HistoryOptions<S>) {
+  let past: S[] = $state.raw([])
+  let future: S[] = $state.raw([])
   let current = read()
   let currentKey = $state(keyOf(current))
   const liveKey = $derived(keyOf(read()))
-  let timer
+  let timer: ReturnType<typeof setTimeout> | undefined
   let loaded = false
 
   onMount(() => {
@@ -40,11 +51,11 @@ export function createHistory({ read, write, keyOf, tidy, storageKey, delay = 50
     }
   })
 
-  function load() {
+  function load(): { past: S[]; current: S; future: S[] } | null {
     try {
       const data = JSON.parse(localStorage.getItem(storageKey) ?? 'null')
       if (!data || !data.current || !Array.isArray(data.past) || !Array.isArray(data.future)) return null
-      const list = (snaps) => snaps.filter((s) => s && typeof s === 'object').slice(-LIMIT).map(tidy)
+      const list = (snaps: unknown[]) => snaps.filter((s) => s && typeof s === 'object').slice(-LIMIT).map(tidy)
       return { past: list(data.past), current: tidy(data.current), future: list(data.future) }
     } catch {
       return null
@@ -79,7 +90,7 @@ export function createHistory({ read, write, keyOf, tidy, storageKey, delay = 50
     return () => clearTimeout(timer)
   })
 
-  function go(to) {
+  function go(to: S) {
     current = to
     currentKey = keyOf(to)
     write(structuredClone(to))
@@ -89,20 +100,20 @@ export function createHistory({ read, write, keyOf, tidy, storageKey, delay = 50
     record()
     if (!past.length) return
     future = [...future, current]
-    go(past.at(-1))
+    go(past.at(-1)!)
     past = past.slice(0, -1)
   }
   function redo() {
     record()
     if (!future.length) return
     past = [...past, current].slice(-LIMIT)
-    go(future.at(-1))
+    go(future.at(-1)!)
     future = future.slice(0, -1)
   }
   /** Cmd/Ctrl+Z and Shift+Cmd+Z / Ctrl+Y, outside text boxes (they keep their own undo). */
-  function onkeydown(event) {
+  function onkeydown(event: KeyboardEvent) {
     if (!(event.metaKey || event.ctrlKey) || event.altKey) return
-    if (event.target.matches?.('input[type=text], input[type=number], input[type=search], textarea')) return
+    if ((event.target as Element | null)?.matches?.('input[type=text], input[type=number], input[type=search], textarea')) return
     const key = event.key.toLowerCase()
     if (key === 'z' && !event.shiftKey) undo()
     else if ((key === 'z' && event.shiftKey) || key === 'y') redo()

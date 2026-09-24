@@ -1,11 +1,11 @@
-<script>
+<script lang="ts">
   // The directory: a search box that filters the cards as you type, then
   // every generator as a small card with a live preview of its figure, and a
   // last card for requesting one we don't have.
   import { Plus, Search } from '@lucide/svelte'
-  import { searchGenerators } from '$lib/generators/index.js'
+  import { searchGenerators } from '$lib/generators'
   import Seo from '$lib/site/Seo.svelte'
-  import { openRequest } from '$lib/site/request.svelte.js'
+  import { openRequest } from '$lib/site/request.svelte'
 
   let query = $state('')
   const results = $derived(searchGenerators(query))

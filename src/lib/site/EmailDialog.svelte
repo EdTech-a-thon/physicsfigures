@@ -1,12 +1,20 @@
-<script>
+<script lang="ts">
   // The one way to reach a person, shared by Help and Request a generator so
   // the two look alike: a short message, the address with a copy button (many
   // school computers have no email app), and a button that opens an email.
+  import type { Snippet } from 'svelte'
   import { Check, Copy, Mail } from '@lucide/svelte'
   import Modal from '$lib/shared/Modal.svelte'
-  import { SUPPORT_EMAIL } from './config.js'
+  import { SUPPORT_EMAIL } from './config'
 
-  let { title, subject, body = '', onclose, children } = $props()
+  interface Props {
+    title: string
+    subject: string
+    body?: string
+    onclose: () => void
+    children: Snippet
+  }
+  let { title, subject, body = '', onclose, children }: Props = $props()
 
   const mailto = $derived(
     `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(subject)}${body ? `&body=${encodeURIComponent(body)}` : ''}`,

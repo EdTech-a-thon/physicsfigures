@@ -1,13 +1,21 @@
-<script>
+<script lang="ts">
   // One piece of text on the figure: written text, a blank line for students
   // to write on (titles only), or nothing at all.
-  import { Ban, PencilLine, Type } from '@lucide/svelte'
+  import { Ban, PencilLine, Type, type LucideIcon } from '@lucide/svelte'
 
-  let { name, mode = $bindable(), text = $bindable(), placeholder = '', blank = true } = $props()
+  type Mode = 'text' | 'blank' | 'none'
+  interface Props {
+    name: string
+    mode: Mode
+    text: string
+    placeholder?: string
+    blank?: boolean
+  }
+  let { name, mode = $bindable(), text = $bindable(), placeholder = '', blank = true }: Props = $props()
 
-  const MODES = $derived([
+  const MODES = $derived<(readonly [Mode, string, LucideIcon])[]>([
     ['text', 'Text', Type],
-    ...(blank ? [['blank', 'Blank line', PencilLine]] : []),
+    ...(blank ? ([['blank', 'Blank line', PencilLine]] as const) : []),
     ['none', 'None', Ban],
   ])
 </script>
