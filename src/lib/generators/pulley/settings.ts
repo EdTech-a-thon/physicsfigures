@@ -4,7 +4,7 @@
 import { bool, choice, defineSettings, int, label, number } from '$lib/shared/settings'
 
 export const pulleySettings = defineSettings({
-  setup: choice('atwood', ['atwood', 'table', 'ramp']),
+  setup: choice('atwood', ['atwood', 'table', 'ramp', 'tackle']),
   /** The two objects: in an Atwood machine, the left and right ones; on a table or ramp, the one on it and the hanging one. */
   aLabel: label({ mode: 'text', text: 'm_1' }),
   aSize: number(1, 0.5, 2),
@@ -17,6 +17,10 @@ export const pulleySettings = defineSettings({
   angle: int(30, 10, 60),
   angleLabel: label({ mode: 'text', text: 'theta' }),
   surface: choice('smooth', ['smooth', 'rough']),
+  /** A block and tackle: how many strands hold up its load. */
+  strands: int(2, 1, 4),
+  loadLabel: label({ mode: 'text', text: 'm' }),
+  loadSize: number(1, 0.5, 2),
   mirror: bool(false),
   color: bool(false),
 })

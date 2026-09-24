@@ -15,16 +15,21 @@
   const s = $derived(gen.clean)
 
   const shown = (l: Label) => (l.mode === 'text' ? `“${l.text}”` : l.mode === 'blank' ? 'blank' : 'no label')
-  const SETUPS = { atwood: 'Atwood machine', table: 'table and hanging mass', ramp: 'ramp and hanging mass' }
+  const SETUPS = { atwood: 'Atwood machine', table: 'table and hanging mass', ramp: 'ramp and hanging mass', tackle: 'block and tackle' }
   // What each object is called in each setup.
   const NAMES = {
     atwood: { a: 'Left object', b: 'Right object' },
     table: { a: 'On the table', b: 'Hanging' },
     ramp: { a: 'On the ramp', b: 'Hanging' },
+    tackle: { a: '', b: '' },
   }
   const names = $derived(NAMES[s.setup])
+  const BOTH = ['a', 'b'] as const
+  const objectKeys = $derived(s.setup === 'tackle' ? [] : BOTH)
   const objectsSummary = $derived(
-    `${shown(s.aLabel)} and ${shown(s.bLabel)}${s.setup === 'atwood' && s.lower !== 'neither' ? ` · ${s.lower === 'a' ? 'left' : 'right'} lower` : ''}`,
+    s.setup === 'tackle'
+      ? `${shown(s.loadLabel)} held by ${s.strands} strand${s.strands === 1 ? '' : 's'}`
+      : `${shown(s.aLabel)} and ${shown(s.bLabel)}${s.setup === 'atwood' && s.lower !== 'neither' ? ` · ${s.lower === 'a' ? 'left' : 'right'} lower` : ''}`,
   )
   const surfaceSummary = $derived(s.setup === 'ramp' ? `${s.angle}° · ${shown(s.angleLabel)} · ${s.surface}` : s.surface)
 </script>
@@ -33,12 +38,33 @@
   {#snippet controls()}
     <Section title="Setup" icon={Cog} summary={SETUPS[s.setup]}>
       <div class="field">
-        <Choice name="Setup" options={[['atwood', 'Atwood'], ['table', 'Table'], ['ramp', 'Ramp']]} bind:value={gen.settings.setup} />
+        <Choice
+          name="Setup"
+          options={[['atwood', 'Atwood'], ['table', 'Table'], ['ramp', 'Ramp'], ['tackle', 'Block & tackle']]}
+          bind:value={gen.settings.setup}
+        />
       </div>
     </Section>
 
-    <Section title="Objects" icon={Box} summary={objectsSummary}>
-      {#each ['a', 'b'] as const as which}
+    <Section title={s.setup === 'tackle' ? 'Load' : 'Objects'} icon={Box} summary={objectsSummary}>
+      {#if s.setup === 'tackle'}
+        <label class="field">
+          Strands holding up the load
+          <span class="slider">
+            <input type="range" min="1" max="4" bind:value={gen.settings.strands} />
+            <output>{s.strands}</output>
+          </span>
+        </label>
+        <div class="field">Label <LabelField name="Load label" bind:label={gen.settings.loadLabel} /></div>
+        <label class="field">
+          Size
+          <span class="slider">
+            <input type="range" min="0.5" max="2" step="0.05" bind:value={gen.settings.loadSize} />
+            <output>{Math.round(s.loadSize * 100)}%</output>
+          </span>
+        </label>
+      {/if}
+      {#each objectKeys as which}
         <p class="subhead">{names[which]}</p>
         {#if which === 'a' && s.setup !== 'atwood'}
           <div class="field">
@@ -62,7 +88,7 @@
       {/if}
     </Section>
 
-    {#if s.setup !== 'atwood'}
+    {#if s.setup === 'table' || s.setup === 'ramp'}
       <Section title={s.setup === 'ramp' ? 'Ramp' : 'Table'} icon={Triangle} summary={surfaceSummary}>
         {#if s.setup === 'ramp'}
           <label class="field">

@@ -23,12 +23,15 @@
     }
     return `M${at(from)} A${wheel.r},${wheel.r} 0 ${to - from > 180 ? 1 : 0} 1 ${at(to)}`
   }
-  const labelOf = (which: 'a' | 'b') => (which === 'a' ? settings.aLabel : settings.bLabel)
-  const DESCRIPTIONS = {
-    atwood: 'An Atwood machine: two objects hanging from a string over a pulley',
-    table: 'An object on a table tied over a pulley at its edge to a hanging object',
-    ramp: 'An object on a ramp tied over a pulley at its top to a hanging object',
-  }
+  const labelOf = (which: 'a' | 'b' | 'load') => (which === 'a' ? settings.aLabel : which === 'b' ? settings.bLabel : settings.loadLabel)
+  const description = $derived(
+    {
+      atwood: 'An Atwood machine: two objects hanging from a string over a pulley',
+      table: 'An object on a table tied over a pulley at its edge to a hanging object',
+      ramp: 'An object on a ramp tied over a pulley at its top to a hanging object',
+      tackle: `A block and tackle: a load held up by ${settings.strands} strand${settings.strands === 1 ? '' : 's'} of rope`,
+    }[settings.setup],
+  )
 </script>
 
 <svg
@@ -37,7 +40,7 @@
   width={fig.width}
   height={fig.height}
   role="img"
-  aria-label={DESCRIPTIONS[settings.setup]}
+  aria-label={description}
   id="{id}-pulley"
 >
   <rect class="paper" width={fig.width} height={fig.height} fill="#fff" />
@@ -81,6 +84,14 @@
       <circle cx={w.cx} cy={w.cy} r="3" fill={p.ink} />
     {/each}
     {#each fig.arcs as a}<path d={arcPath(a.wheel, a.from, a.to)} stroke={p.ink} stroke-width="2.2" />{/each}
+
+    {#if fig.tackle}
+      {@const t = fig.tackle}
+      {#if t.bar}<line x1={t.bar.x1} y1={t.bar.y1} x2={t.bar.x2} y2={t.bar.y2} stroke={p.ink} stroke-width="5" />{/if}
+      {#if t.hook}<line x1={t.hook.x1} y1={t.hook.y1} x2={t.hook.x2} y2={t.hook.y2} stroke={p.ink} stroke-width="2.2" />{/if}
+      <!-- The free end, where the effort pulls. -->
+      <circle cx={t.effort.x} cy={t.effort.y + 6} r="6" fill="#fff" stroke={p.ink} stroke-width="2.2" />
+    {/if}
 
     {#each fig.objects as o}
       <g transform="translate({o.at.x} {o.at.y}) rotate({o.tilt})">

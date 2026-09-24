@@ -28,6 +28,11 @@ const LEG = 14
 /** How far below the wheel a hanging object's top is, when there's room. */
 const HANG_DROP = 110
 const MAX_RAMP_BASE = 380
+const TACKLE_R = 24
+/** How far the movable pulleys hang below the fixed ones, when there's room. */
+const TACKLE_SPAN = 150
+const BAR_GAP = 14
+const HOOK = 18
 const FIT_MARGIN = 14
 const GROUND_OVERHANG = 30
 /** The least string below a wheel before its hanging object, and the gap left above the ground. */
@@ -51,7 +56,7 @@ export interface PlacedObject {
   middle: Point
   height: number
   width: number
-  which: 'a' | 'b'
+  which: 'a' | 'b' | 'load'
 }
 
 export interface PulleyFigure {
@@ -74,6 +79,12 @@ export interface PulleyFigure {
   ramp: { foot: Point; corner: Point; top: Point; arc: string; angleLabelAt: Point } | null
   /** A block a low ramp stands on, so there's room below its pulley for the hanging object. */
   platform: { x: number; y: number; w: number; h: number } | null
+  /**
+   * A block and tackle: the bar the movable pulleys hang from (and the load
+   * from it), the hook from the bar to the load, the strands holding the load
+   * up (each as the index of its string), and the free end the effort pulls.
+   */
+  tackle: { bar: Segment | null; hook: Segment | null; supporting: number[]; effort: Point } | null
   /** Hatching under a rough table or slope. */
   hatches: Segment[]
 }
@@ -82,7 +93,7 @@ const r2 = (n: number) => Math.round(n * 100) / 100
 const pt = (x: number, y: number): Point => ({ x: r2(x), y: r2(y) })
 
 const seg = (a: Point, b: Point): Segment => ({ x1: r2(a.x), y1: r2(a.y), x2: r2(b.x), y2: r2(b.y) })
-const empty = { ground: null, groundHatches: [], table: null, ramp: null, platform: null, hatches: [] as Segment[] }
+const empty = { ground: null, groundHatches: [], table: null, ramp: null, platform: null, tackle: null, hatches: [] as Segment[] }
 
 /** An object resting at `at` (its bottom middle), tilted by `tilt` degrees; `n` points out of the surface. */
 function resting(which: 'a' | 'b', kind: ObjectKind, size: number, at: Point, tilt: number, n: Point): PlacedObject {
@@ -96,7 +107,7 @@ function groundHatches(g: Segment): Segment[] {
   return out
 }
 
-function hanging(which: 'a' | 'b', x: number, top: number, size: number): PlacedObject {
+function hanging(which: PlacedObject['which'], x: number, top: number, size: number): PlacedObject {
   const h = objectHeight('block', size)
   return {
     kind: 'block',
@@ -183,6 +194,7 @@ function table(s: PulleySettings): PulleyFigure {
     },
     ramp: null,
     platform: null,
+    tackle: null,
     hatches,
   }
 }
@@ -284,6 +296,7 @@ function rampAt(s: PulleySettings, base: number, wantDrop: number): PulleyFigure
       angleLabelAt: pt(foot.x + Math.cos(half) * ANGLE_LABEL_R + 6, foot.y - Math.sin(half) * ANGLE_LABEL_R - 2),
     },
     platform: lift > 0 ? { x: x0, y: footY, w: base, h: lift } : null,
+    tackle: null,
     hatches,
     extent: [foot, top, ...corners, pt(wheel.cx - r, wheel.cy - r), pt(wheel.cx + r, wheel.cy - r), pt(b.at.x + b.width / 2, b.at.y), pt(b.at.x - b.width / 2, b.at.y)],
   }
@@ -317,7 +330,82 @@ function shiftX(f: PulleyFigure & { extent?: Point[] }, dx: number): PulleyFigur
   }
 }
 
+/**
+ * A block and tackle: a load held up by `n` strands. The rope's strands hang
+ * side by side, strand 0 being the free end the effort pulls down on. Fixed
+ * pulleys at the top join strands 0–1 and 2–3; movable pulleys at the bottom,
+ * on a bar the load hangs from, join strands 1–2 and 3–4. The rope's far end
+ * is tied to the ceiling (even n) or the bar (odd n); with one strand there
+ * are no movable pulleys and the load hangs from the rope itself.
+ */
+function tackle(s: PulleySettings): PulleyFigure {
+  const n = s.strands
+  const hl = objectHeight('block', s.loadSize)
+  const wl = objectWidth('block', s.loadSize)
+  // With one strand the load hangs beside the free end, so the wheel spreads them apart.
+  const r = n === 1 ? Math.max(TACKLE_R, wl / 4 + 8) : TACKLE_R
+  const d = 2 * r
+  const x0 = WIDTH / 2 - (n * d) / 2
+  const xs = Array.from({ length: n + 1 }, (_, j) => x0 + j * d)
+  const topY = CEILING_Y + 44 + r
+  const room = HEIGHT - BOTTOM_MARGIN - hl - HOOK - BAR_GAP - r - topY
+  const bottomY = topY + Math.min(TACKLE_SPAN, room)
+  const barY = bottomY + r + BAR_GAP
+
+  const topPair = (j: number) => j - (j % 2) + 1 <= n // strand j meets a fixed pulley
+  const bottomPair = (j: number) => {
+    const q = j % 2 === 1 ? j : j - 1
+    return q >= 1 && q + 1 <= n // strand j meets a movable pulley
+  }
+  const wheels: Wheel[] = []
+  const arcs: PulleyFigure['arcs'] = []
+  for (let j = 0; j + 1 <= n; j += 2) {
+    const w = { cx: r2((xs[j] + xs[j + 1]) / 2), cy: r2(topY), r }
+    wheels.push(w)
+    arcs.push({ wheel: w, from: 180, to: 360 })
+  }
+  for (let j = 1; j + 1 <= n; j += 2) {
+    const w = { cx: r2((xs[j] + xs[j + 1]) / 2), cy: r2(bottomY), r }
+    wheels.push(w)
+    arcs.push({ wheel: w, from: 0, to: 180 })
+  }
+  const movable = wheels.filter((w) => w.cy === r2(bottomY))
+
+  // The load hangs from the middle of the bar, or from the rope with one strand.
+  const bar = movable.length ? seg(pt(Math.min(...movable.map((w) => w.cx)) - r, barY), pt(Math.max(xs[n], ...movable.map((w) => w.cx + r)), barY)) : null
+  const loadX = bar ? (bar.x1 + bar.x2) / 2 : xs[1]
+  const loadTop = bar ? barY + HOOK : bottomY
+  const load = hanging('load', loadX, loadTop, s.loadSize)
+  const effortEnd = pt(xs[0], Math.min(bottomY + 50, HEIGHT - BOTTOM_MARGIN))
+
+  const strings: Point[][] = [[pt(xs[0], topY), effortEnd]]
+  const supporting: number[] = []
+  for (let j = 1; j <= n; j++) {
+    const upper = topPair(j) ? topY : CEILING_Y
+    const lower = bottomPair(j) ? bottomY : bar ? barY : loadTop
+    supporting.push(strings.length)
+    strings.push([pt(xs[j], upper), pt(xs[j], lower)])
+  }
+  const rods = [
+    ...wheels.filter((w) => w.cy === r2(topY)).map((w) => seg(pt(w.cx, CEILING_Y), pt(w.cx, w.cy))),
+    ...movable.map((w) => seg(pt(w.cx, w.cy), pt(w.cx, barY))),
+  ]
+  return {
+    width: WIDTH,
+    height: HEIGHT,
+    wheels,
+    strings,
+    arcs,
+    objects: [load],
+    ceiling: seg(pt(Math.min(xs[0], loadX - wl / 2) - 40, CEILING_Y), pt(Math.max(xs[n], loadX + wl / 2) + 40, CEILING_Y)),
+    rods,
+    ...empty,
+    tackle: { bar, hook: bar ? seg(pt(loadX, barY), pt(loadX, loadTop)) : null, supporting, effort: effortEnd },
+  }
+}
+
 export function buildPulley(s: PulleySettings): PulleyFigure {
+  if (s.setup === 'tackle') return tackle(s)
   if (s.setup === 'table') return table(s)
   if (s.setup === 'ramp') return ramp(s)
   return atwood(s)

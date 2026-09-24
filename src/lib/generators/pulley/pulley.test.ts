@@ -132,3 +132,46 @@ describe('ramp and hanging mass', () => {
     expect(make({ setup: 'ramp', angle: 45 }).platform).toBeNull()
     expect(make({ setup: 'ramp', angle: 10 }).platform).not.toBeNull()
   })
+
+describe('block and tackle', () => {
+  test('the load is held up by the chosen number of strands', () => {
+    for (const strands of [1, 2, 3, 4]) {
+      const f = make({ setup: 'tackle', strands })
+      expect(f.tackle!.supporting).toHaveLength(strands)
+      // plus the free end the effort pulls on
+      expect(f.tackle!.effort).toBeTruthy()
+    }
+  })
+
+  test('every strand hangs straight up and down', () => {
+    for (const strands of [1, 2, 3, 4]) {
+      for (const string of make({ setup: 'tackle', strands }).strings) {
+        for (let i = 1; i < string.length; i++) expect(string[i].x).toBeCloseTo(string[i - 1].x)
+      }
+    }
+  })
+
+  test('fixed pulleys above, movable ones below with the load', () => {
+    const count = (strands: number) => {
+      const f = make({ setup: 'tackle', strands })
+      const [top] = f.wheels.map((w) => w.cy).sort((a, b) => a - b)
+      return { fixed: f.wheels.filter((w) => w.cy === top).length, movable: f.wheels.filter((w) => w.cy !== top).length }
+    }
+    expect(count(1)).toEqual({ fixed: 1, movable: 0 })
+    expect(count(2)).toEqual({ fixed: 1, movable: 1 })
+    expect(count(3)).toEqual({ fixed: 2, movable: 1 })
+    expect(count(4)).toEqual({ fixed: 2, movable: 2 })
+  })
+
+  test('the load fits, and the free end is clear of it', () => {
+    for (const strands of [1, 2, 3, 4]) {
+      for (const loadSize of [0.5, 2]) {
+        const f = make({ setup: 'tackle', strands, loadSize })
+        const [load] = f.objects
+        expect(load.at.y).toBeLessThanOrEqual(f.height)
+        const effortX = f.tackle!.effort.x
+        expect(Math.abs(effortX - load.at.x)).toBeGreaterThan(load.width / 2 + 6)
+      }
+    }
+  })
+})
