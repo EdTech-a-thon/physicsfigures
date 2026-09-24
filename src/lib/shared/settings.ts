@@ -61,7 +61,7 @@ export const label = (def: Label): Field<Label> => ({
 })
 
 type Spec = Record<string, Field<any>>
-export type SettingsOf<S extends Spec> = { [K in keyof S]: S[K]['default'] }
+export type SettingsOf<S extends Spec> = { -readonly [K in keyof S]: S[K]['default'] }
 
 export function defineSettings<const S extends Spec>(spec: S) {
   type Settings = SettingsOf<S>

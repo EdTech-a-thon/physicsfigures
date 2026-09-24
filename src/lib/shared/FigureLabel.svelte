@@ -18,8 +18,10 @@
     /** How long a blank line is. */
     blank?: number
     italic?: boolean
+    /** A white outline, so the label reads over lines behind it. */
+    halo?: boolean
   }
-  let { label, x, y, anchor = 'middle', size = 18, color = '#111827', blank = size * 2.4, italic = true }: Props = $props()
+  let { label, x, y, anchor = 'middle', size = 18, color = '#111827', blank = size * 2.4, italic = true, halo = true }: Props = $props()
 
   /** A run split into pieces, with single letters marked for italics. */
   const pieces = (text: string) =>
@@ -45,7 +47,18 @@
 </script>
 
 {#if label.mode === 'text' && label.text.trim()}
-  <text {x} {y} text-anchor={anchor} font-family={SERIF} font-size={size} fill={color}>
+  <text
+    {x}
+    {y}
+    text-anchor={anchor}
+    font-family={SERIF}
+    font-size={size}
+    fill={color}
+    stroke={halo ? '#fff' : undefined}
+    stroke-width={halo ? 4 : undefined}
+    stroke-linejoin="round"
+    paint-order="stroke"
+  >
     {#each spans as s}<tspan dy={s.dy || undefined} font-size={s.shift ? size * SMALL : undefined}
         >{#each pieces(s.text) as piece}<tspan font-style={piece.italic ? 'italic' : undefined}>{piece.t}</tspan>{/each}</tspan
       >{/each}

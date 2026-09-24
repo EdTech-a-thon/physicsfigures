@@ -14,6 +14,9 @@ export const coilSettings = defineSettings({
   motionLabel: label({ mode: 'text', text: 'v' }),
   north: label({ mode: 'text', text: 'N' }),
   south: label({ mode: 'text', text: 'S' }),
+  fieldLines: choice('magnet', ['magnet', 'none']),
+  /** Field lines above the magnet (and as many below). */
+  lineCount: int(4, 1, 8),
   mirror: bool(false),
   color: bool(false),
 })

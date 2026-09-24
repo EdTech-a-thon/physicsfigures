@@ -7,6 +7,7 @@
 // bottom of the coil as leads.
 
 import type { Segment } from '$lib/shared/vector'
+import { magnetFieldLines, type FieldLine } from './fieldLines'
 import type { CoilSettings } from './settings'
 
 export const WIDTH = 640
@@ -22,6 +23,7 @@ const MAGNET_LENGTH = 150
 const MAGNET_HEIGHT = 46
 const GAP_OUTSIDE = 70
 const MOTION_LENGTH = 76
+const FIELD_MARGIN = 14
 
 export interface Magnet {
   x: number
@@ -51,6 +53,7 @@ export interface CoilFigure {
   }
   magnet: Magnet | null
   motion: Segment | null
+  fieldLines: FieldLine[]
 }
 
 const f = (n: number) => Math.round(n * 100) / 100
@@ -96,6 +99,10 @@ export function buildCoilFigure(s: CoilSettings): CoilFigure {
     motion = { x1: f(mid - (dir * MOTION_LENGTH) / 2), y1: y, x2: f(mid + (dir * MOTION_LENGTH) / 2), y2: y }
   }
 
+  // The outermost field line passes just inside the top of the figure.
+  const fieldLines =
+    magnet && s.fieldLines === 'magnet' ? magnetFieldLines(magnet, s.lineCount, magnet.y - FIELD_MARGIN) : []
+
   return {
     width: WIDTH,
     height: HEIGHT,
@@ -105,5 +112,6 @@ export function buildCoilFigure(s: CoilSettings): CoilFigure {
     coil: { left: f(xs[0]), right: f(xs.at(-1)!), loopRx: LOOP_RX, r: COIL_R, front, back, leads },
     magnet,
     motion,
+    fieldLines,
   }
 }

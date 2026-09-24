@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest'
+import { crosses } from '$lib/shared/field'
 import { buildCoilFigure } from './coil'
 import { coilSettings } from './settings'
 
@@ -58,5 +59,42 @@ describe('the motion vector', () => {
     const away = make({ motion: 'away' }).motion!
     expect(away.x2).toBeLessThan(away.x1)
     expect(make({ motion: 'none' }).motion).toBeNull()
+  })
+})
+
+describe('field lines', () => {
+  test('as many above the magnet as below, and none without a magnet or when off', () => {
+    expect(make({ lineCount: 3 }).fieldLines.filter((l) => l.kind === 'loop')).toHaveLength(6)
+    expect(make({ lineCount: 3 }).fieldLines.filter((l) => l.kind === 'axis')).toHaveLength(2)
+    expect(make({ source: 'none' }).fieldLines).toHaveLength(0)
+    expect(make({ fieldLines: 'none' }).fieldLines).toHaveLength(0)
+  })
+
+  test('they never cross', () => {
+    const lines = make({ lineCount: 5 }).fieldLines.map((l) => l.points)
+    for (let i = 0; i < lines.length; i++) for (let j = i + 1; j < lines.length; j++) expect(crosses(lines[i], lines[j])).toBe(false)
+  })
+
+  test('outside the magnet they run from its north pole to its south pole', () => {
+    for (const facing of ['N', 'S'] as const) {
+      const f = make({ facing })
+      const m = f.magnet!
+      const north = facing === 'N' ? m.x + m.length : m.x
+      const south = facing === 'N' ? m.x : m.x + m.length
+      const [outOfNorth, intoSouth] = f.fieldLines.filter((l) => l.kind === 'axis')
+      expect(outOfNorth.points[0].x).toBe(north)
+      expect(Math.sign(outOfNorth.points[1].x - north)).toBe(Math.sign(north - south)) // heading away from the magnet
+      expect(intoSouth.points.at(-1)!.x).toBe(south)
+      for (const { points } of f.fieldLines.filter((l) => l.kind === 'loop')) {
+        expect(Math.abs(points[0].x - north)).toBeLessThan(Math.abs(points[0].x - south))
+        expect(Math.abs(points.at(-1)!.x - south)).toBeLessThan(Math.abs(points.at(-1)!.x - north))
+      }
+    }
+  })
+
+  test('the outermost line stays inside the figure', () => {
+    const f = make({ lineCount: 4 })
+    const top = Math.min(...f.fieldLines.filter((l) => l.kind === 'loop').flatMap((l) => l.points.map((p) => p.y)))
+    expect(top).toBeGreaterThan(0)
   })
 })

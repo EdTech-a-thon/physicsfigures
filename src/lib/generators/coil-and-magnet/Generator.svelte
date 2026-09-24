@@ -1,7 +1,7 @@
 <script lang="ts">
   // The Coil and Magnet Generator: the coil, the magnet and its motion on the
   // left, the figure on the right. Settings live in the page address.
-  import { Cable, Magnet, MoveRight } from '@lucide/svelte'
+  import { Cable, Magnet, MoveRight, Spline } from '@lucide/svelte'
   import Choice from '$lib/shared/Choice.svelte'
   import { createGenerator } from '$lib/shared/generator.svelte'
   import GeneratorLayout from '$lib/shared/GeneratorLayout.svelte'
@@ -19,6 +19,9 @@
 
   const coilSummary = $derived(`${s.turns} turn${s.turns === 1 ? '' : 's'}`)
   const magnetSummary = $derived(s.source === 'none' ? 'no magnet' : `${s.facing} pole facing the coil · ${DISTANCES[s.distance]}`)
+  const fieldSummary = $derived(
+    s.source === 'none' || s.fieldLines === 'none' ? 'none' : `${s.lineCount * 2} lines around the magnet`,
+  )
   const motionSummary = $derived(
     s.source === 'none' ? 'no magnet' : s.motion === 'none' ? 'not moving' : `${s.motion} the coil · ${shown(s.motionLabel)}`,
   )
@@ -61,6 +64,26 @@
     </Section>
 
     {#if s.source === 'magnet'}
+      <Section title="Field lines" icon={Spline} summary={fieldSummary}>
+        <label class="check">
+          <input
+            type="checkbox"
+            checked={gen.settings.fieldLines === 'magnet'}
+            onchange={(e) => (gen.settings.fieldLines = e.currentTarget.checked ? 'magnet' : 'none')}
+          />
+          Show the magnet’s field lines
+        </label>
+        {#if s.fieldLines === 'magnet'}
+          <label class="field">
+            Lines above and below the magnet
+            <span class="slider">
+              <input type="range" min="1" max="8" bind:value={gen.settings.lineCount} />
+              <output>{s.lineCount}</output>
+            </span>
+          </label>
+        {/if}
+      </Section>
+
       <Section title="Motion" icon={MoveRight} summary={motionSummary}>
         <div class="field">
           The magnet moves

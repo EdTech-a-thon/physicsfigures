@@ -5,6 +5,7 @@
   import FigureLabel from '$lib/shared/FigureLabel.svelte'
   import VectorArrow from '$lib/shared/VectorArrow.svelte'
   import { mirrorTransform, mirrorX, palette } from '$lib/shared/figure'
+  import { linePath } from '$lib/shared/field'
   import { labelPoint } from '$lib/shared/vector'
   import { buildCoilFigure } from './coil'
   import type { CoilSettings } from './settings'
@@ -55,9 +56,23 @@
   aria-label={description}
   id="{id}-coil-and-magnet"
 >
+  <defs>
+    <clipPath id="{id}-clip"><rect width={fig.width} height={fig.height} /></clipPath>
+  </defs>
   <rect width={fig.width} height={fig.height} fill="#fff" />
   <g transform={mirrorTransform(settings.mirror, fig.width)} fill="none" stroke-linecap="round">
     {#each fig.coil.back as d}<path {d} stroke={p.hidden} stroke-width="2.5" />{/each}
+
+    {#if fig.fieldLines.length}
+      <g clip-path="url(#{id}-clip)">
+        {#each fig.fieldLines as line}<path d={linePath(line.points)} stroke={p.field} stroke-width="1.6" />{/each}
+        {#each fig.fieldLines as line}
+          {#if line.arrow}
+            <polygon points="6,0 -5,-5 -5,5" fill={p.field} transform="translate({line.arrow.x} {line.arrow.y}) rotate({line.arrow.angle})" />
+          {/if}
+        {/each}
+      </g>
+    {/if}
 
     {#if fig.magnet}
       {@const m = fig.magnet}
@@ -87,6 +102,7 @@
         color={h.text}
         blank={36}
         italic={false}
+        halo={false}
       />
     {/each}
   {/if}
