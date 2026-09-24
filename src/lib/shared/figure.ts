@@ -25,6 +25,8 @@ export interface Palette {
   onSouth: string
   /** Objects like blocks and carts. */
   object: string
+  /** Solid ground and ramps. */
+  surface: string
 }
 
 const INK = '#111827'
@@ -42,6 +44,7 @@ export function palette(color: boolean): Palette {
       south: '#ffffff',
       onSouth: INK,
       object: '#e5e7eb',
+      surface: '#f3f4f6',
     }
   }
   return {
@@ -55,6 +58,7 @@ export function palette(color: boolean): Palette {
     south: '#2563eb',
     onSouth: '#ffffff',
     object: '#bfdbfe',
+    surface: '#fef3c7',
   }
 }
 

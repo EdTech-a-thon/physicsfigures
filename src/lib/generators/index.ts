@@ -4,6 +4,7 @@
 
 import type { Component } from 'svelte'
 import CoilMagnetPreview from './coil-and-magnet/Preview.svelte'
+import InclinedPlanePreview from './inclined-plane/Preview.svelte'
 
 export interface Generator {
   id: string
@@ -35,6 +36,20 @@ export const GENERATORS: Generator[] = [
       'electromagnet', 'galvanometer', 'current', 'printable',
     ],
     Preview: CoilMagnetPreview,
+  },
+  {
+    id: 'inclined-plane',
+    name: 'Inclined Plane Generator',
+    path: '/inclined-plane',
+    blurb: 'A block, ball or cart on a ramp, with its angle and forces.',
+    description:
+      'Make a printable inclined plane figure for your class: a block, ball or cart on a ramp at any angle, with the angle, length and height labeled or left blank, then copy it into a worksheet or test.',
+    keywords: [
+      'incline', 'inclined plane', 'ramp', 'slope', 'wedge', 'block', 'ball', 'cart', 'angle', 'theta', 'friction',
+      'rough', 'smooth', 'free body diagram', 'forces', 'normal force', 'gravity', 'newton', "newton's laws", 'sliding',
+      'rolling', 'mechanics', 'printable',
+    ],
+    Preview: InclinedPlanePreview,
   },
 ]
 
