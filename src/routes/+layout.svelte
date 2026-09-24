@@ -1,0 +1,29 @@
+<script>
+  // Every page: the top bar, the page, then the footer (generators go without,
+  // so the figure gets the whole window), plus the Help and request dialogs.
+  import '../app.css'
+  import { page } from '$app/state'
+  import { findGenerator } from '$lib/generators/index.js'
+  import Footer from '$lib/site/Footer.svelte'
+  import Help from '$lib/site/Help.svelte'
+  import RequestDialog from '$lib/site/RequestDialog.svelte'
+  import TopBar from '$lib/site/TopBar.svelte'
+
+  let { children } = $props()
+
+  // Cloudflare Web Analytics beacon; the token is set in Vercel's production env only.
+  const beacon = import.meta.env.VITE_CF_BEACON_TOKEN
+  const onGenerator = $derived(!!findGenerator(page.url.pathname))
+</script>
+
+<svelte:head>
+  {#if beacon}
+    <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon={JSON.stringify({ token: beacon })}></script>
+  {/if}
+</svelte:head>
+
+<TopBar />
+<main>{@render children()}</main>
+{#if !onGenerator}<Footer />{/if}
+<Help />
+<RequestDialog />
