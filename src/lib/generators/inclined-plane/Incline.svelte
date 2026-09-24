@@ -5,18 +5,12 @@
   import DimensionLine from '$lib/shared/DimensionLine.svelte'
   import FigureLabel from '$lib/shared/FigureLabel.svelte'
   import ObjectShape from '$lib/shared/ObjectShape.svelte'
+  import VectorArrow from '$lib/shared/VectorArrow.svelte'
   import { mirrorAnchor, mirrorTransform, mirrorX, palette } from '$lib/shared/figure'
   import { buildIncline } from './incline'
   import type { InclineSettings } from './settings'
-  import type { Snippet } from 'svelte'
 
-  interface Props {
-    settings: InclineSettings
-    id?: string
-    /** More to draw on the figure, in its unmirrored coordinates (like vectors). */
-    extra?: Snippet<[ReturnType<typeof buildIncline>]>
-  }
-  let { settings, id = 'i', extra }: Props = $props()
+  let { settings, id = 'i' }: { settings: InclineSettings; id?: string } = $props()
 
   const fig = $derived(buildIncline(settings))
   const p = $derived(palette(settings.color))
@@ -55,11 +49,14 @@
     {#if fig.lengthMark}<DimensionLine m={fig.lengthMark} color={p.ink} />{/if}
     {#if fig.heightMark}<DimensionLine m={fig.heightMark} color={p.ink} />{/if}
 
-    {@render extra?.(fig)}
+    {#each fig.vectors as v}<VectorArrow v={v.v} color={p.vector} />{/each}
   </g>
 
   <FigureLabel label={settings.angleLabel} x={mx(fig.angleLabelAt.x)} y={fig.angleLabelAt.y + SIZE * 0.35} size={SIZE} color={p.ink} />
   <FigureLabel label={settings.objectLabel} x={mx(fig.object.middle.x)} y={fig.object.middle.y + SIZE * 0.35} size={SIZE} color={p.ink} halo={false} blank={30} />
+  {#each fig.vectors as v}
+    <FigureLabel label={v.label} x={mx(v.labelAt.x)} y={v.labelAt.y + SIZE * 0.35} size={SIZE} color={p.vector} />
+  {/each}
   {#if fig.lengthLabelAt}
     <FigureLabel label={settings.lengthLabel} x={mx(fig.lengthLabelAt.x)} y={fig.lengthLabelAt.y + SIZE * 0.35} size={SIZE} color={p.ink} />
   {/if}

@@ -4,9 +4,9 @@
 // with everything else, then the whole figure is centered.
 
 import type { Point } from '$lib/shared/field'
-import { labelRuns } from '$lib/shared/label'
+import { labelRuns, type Label } from '$lib/shared/label'
 import { objectHeight, objectWidth, type ObjectKind } from '$lib/shared/objects'
-import type { Segment } from '$lib/shared/vector'
+import { labelPoint, type Segment } from '$lib/shared/vector'
 import type { InclineSettings } from './settings'
 
 export const WIDTH = 640
@@ -22,6 +22,20 @@ const LENGTH_MARK_GAP = 24
 const GROUND_OVERHANG = 30
 const HATCH_SPACING = 13
 const HATCH_LENGTH = 9
+/** Vectors are drawn about the right size, not to scale. */
+const VECTOR_LENGTH = 72
+const MOTION_LENGTH = 56
+const MOTION_GAP = 20
+
+export type VectorKind = 'gravity' | 'normal' | 'friction' | 'applied' | 'velocity' | 'acceleration'
+
+export interface FigureVector {
+  kind: VectorKind
+  v: Segment
+  label: Label
+  /** The middle of its label. */
+  labelAt: Point
+}
 
 export interface InclineFigure {
   width: number
@@ -50,6 +64,7 @@ export interface InclineFigure {
   hatches: Segment[]
   ground: Segment
   groundHatches: Segment[]
+  vectors: FigureVector[]
   /** Every outermost point drawn, for fitting (and tests). */
   extent: Point[]
 }
@@ -130,6 +145,55 @@ function layout(s: InclineSettings, base: number): InclineFigure {
   const groundHatches: Segment[] = []
   for (let x = ground.x1 + 4; x < ground.x2; x += HATCH_SPACING) groundHatches.push(seg(pt(x + HATCH_LENGTH * 0.8, 0), pt(x, HATCH_LENGTH)))
 
+  // Vectors. Forces start at the edge of the object, in the direction they
+  // point: gravity straight down, the normal force straight out of the slope,
+  // the applied force along the slope at mid-height, and friction along the
+  // slope at the contact surface. Velocity and acceleration ride above the
+  // object, set off to one side so they don't cross the normal force.
+  const toEdge = (d: Point) => {
+    if (kind === 'ball') return oh / 2
+    const du = Math.abs(d.x * u.x + d.y * u.y)
+    const dn = Math.abs(d.x * n.x + d.y * n.y)
+    return Math.min(du > 1e-9 ? ow / 2 / du : Infinity, dn > 1e-9 ? oh / 2 / dn : Infinity)
+  }
+  const widthOf = (l: Label) => [...labelRuns(l.text).map((r) => r.text).join('')].length * LABEL_SIZE * 0.45
+  const vectors: FigureVector[] = []
+  const add = (kind: VectorKind, from: Point, d: Point, length: number, label: Label, side?: 1 | -1) => {
+    const v = seg(from, along(from, length, d))
+    const w = widthOf(label)
+    const labelAt =
+      side === undefined
+        ? labelPoint(v, { at: 'tip', gap: 12 + (w / 2) * Math.abs(d.x) + 11 * Math.abs(d.y) })
+        : labelPoint(v, { at: 'middle', side, gap: 16 })
+    vectors.push({ kind, v, label, labelAt: pt(labelAt.x, labelAt.y) })
+  }
+  const slopeDir = (dir: 'up' | 'down') => (dir === 'up' ? u : { x: -u.x, y: -u.y })
+  if (s.gravity) {
+    const d = { x: 0, y: 1 }
+    add('gravity', along(middle, toEdge(d), d), d, VECTOR_LENGTH, s.gravityLabel)
+  }
+  if (s.normal) add('normal', along(middle, toEdge(n), n), n, VECTOR_LENGTH, s.normalLabel)
+  if (s.applied !== 'none') {
+    const d = slopeDir(s.applied)
+    add('applied', along(middle, toEdge(d), d), d, VECTOR_LENGTH, s.appliedLabel)
+  }
+  if (s.friction !== 'none') {
+    const d = slopeDir(s.friction)
+    // Just clear of the slope, so the arrow's white outline doesn't break the slope's line.
+    add('friction', along(along(at, ow / 2, d), 9, n), d, VECTOR_LENGTH * 0.85, s.frictionLabel)
+  }
+  let lane = oh / 2 + MOTION_GAP
+  for (const [kind, dir, label] of [
+    ['velocity', s.velocity, s.velocityLabel],
+    ['acceleration', s.acceleration, s.accelerationLabel],
+  ] as const) {
+    if (dir === 'none') continue
+    const d = slopeDir(dir)
+    // Label on the outer side of the arrow (side 1 is to the left of the way it points).
+    add(kind, along(along(middle, lane, n), 14, d), d, MOTION_LENGTH, label, dir === 'up' ? 1 : -1)
+    lane += MOTION_GAP + 18
+  }
+
   const labelBox = (p: Point | null, w = 16) => (p ? [pt(p.x - w, p.y - 14), pt(p.x + w, p.y + 14)] : [])
   const extent = [
     foot,
@@ -142,6 +206,7 @@ function layout(s: InclineSettings, base: number): InclineFigure {
     ...(lengthMark ? [pt(lengthMark.x1, lengthMark.y1), pt(lengthMark.x2, lengthMark.y2)] : []),
     ...labelBox(lengthLabelAt),
     ...labelBox(heightLabelAt, 24),
+    ...vectors.flatMap((v) => [pt(v.v.x2, v.v.y2), ...labelBox(v.labelAt, widthOf(v.label) / 2 + 6)]),
   ]
 
   return {
@@ -159,6 +224,7 @@ function layout(s: InclineSettings, base: number): InclineFigure {
     hatches,
     ground,
     groundHatches,
+    vectors,
     extent,
   }
 }
@@ -187,6 +253,7 @@ function shifted(f: InclineFigure, dx: number, dy: number): InclineFigure {
     hatches: f.hatches.map(sg),
     ground: sg(f.ground),
     groundHatches: f.groundHatches.map(sg),
+    vectors: f.vectors.map((v) => ({ ...v, v: sg(v.v), labelAt: p(v.labelAt) })),
     extent: f.extent.map(p),
   }
 }
