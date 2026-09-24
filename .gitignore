@@ -21,3 +21,5 @@ dist
 
 # SvelteKit / Vercel
 .vercel
+
+.scratch
