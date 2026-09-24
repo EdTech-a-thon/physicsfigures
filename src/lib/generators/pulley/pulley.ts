@@ -138,12 +138,15 @@ function atwood(s: PulleySettings): PulleyFigure {
   const r = Math.max(WHEEL_R, (wa / 2 + wb / 2 + OBJECT_GAP) / 2)
   const wheel: Wheel = { cx: WIDTH / 2, cy: CEILING_Y + 40 + r, r }
   const tallest = Math.max(objectHeight('block', s.aSize), objectHeight('block', s.bSize))
-  const top = Math.min(HANG_TOP, HEIGHT - BOTTOM_MARGIN - tallest - LOWER_BY - belowFor(s))
+  const lowerBy = s.lower === 'neither' ? 0 : LOWER_BY
+  // As high as leaves room below, but always a string's length below the wheel;
+  // when that runs out of room, the figure grows.
+  const top = Math.max(wheel.cy + Math.max(MIN_DROP, r + 24), Math.min(HANG_TOP, HEIGHT - BOTTOM_MARGIN - tallest - lowerBy - belowFor(s)))
   const a = hanging('a', wheel.cx - r, top + (s.lower === 'a' ? LOWER_BY : 0), s.aSize)
   const b = hanging('b', wheel.cx + r, top + (s.lower === 'b' ? LOWER_BY : 0), s.bSize)
   return {
     width: WIDTH,
-    height: HEIGHT,
+    height: Math.max(HEIGHT, Math.ceil(Math.max(a.at.y, b.at.y) + belowFor(s) + BOTTOM_MARGIN)),
     wheels: [wheel],
     strings: [
       [pt(wheel.cx - r, wheel.cy), pt(a.at.x, a.at.y - a.height)],
@@ -161,7 +164,7 @@ function atwood(s: PulleySettings): PulleyFigure {
 /** Where a hanging object goes below a wheel: a good way down, but clear of the ground (and of room for its gravity vector). */
 function hangBelow(which: 'a' | 'b', wheel: Wheel, size: number, below: number, groundY = GROUND_Y): PlacedObject {
   const h = objectHeight('block', size)
-  const top = Math.max(wheel.cy + MIN_DROP, Math.min(wheel.cy + HANG_DROP, groundY - GROUND_CLEAR - h - below))
+  const top = Math.max(wheel.cy + Math.max(MIN_DROP, wheel.r + 24), Math.min(wheel.cy + HANG_DROP, groundY - GROUND_CLEAR - h - below))
   return hanging(which, wheel.cx + wheel.r, top, size)
 }
 

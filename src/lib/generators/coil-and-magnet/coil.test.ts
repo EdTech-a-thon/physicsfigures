@@ -204,6 +204,10 @@ describe("the coil's own field", () => {
     expect(coilNorth({ fieldLines: 'coil', motion: 'none' })).toBeNull()
   })
 
+  test('none with nothing beside the coil, where the field line choices are hidden', () => {
+    expect(make({ source: 'none', fieldLines: 'coil', current: 'down' }).fieldLines).toHaveLength(0)
+  })
+
   test('both fields, or just one', () => {
     const both = make({ fieldLines: 'both', current: 'down' }).fieldLines
     expect(both.some((l) => l.kind === 'loop')).toBe(true)

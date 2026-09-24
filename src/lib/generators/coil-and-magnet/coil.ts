@@ -195,7 +195,9 @@ export function buildCoilFigure(s: CoilSettings): CoilFigure {
 
   // Field lines. The outermost magnet loop passes just inside the top of the figure.
   const showMagnetField = magnet && (s.fieldLines === 'magnet' || s.fieldLines === 'both')
-  const showCoilField = s.source === 'battery' ? s.fieldLines !== 'none' : s.fieldLines === 'coil' || s.fieldLines === 'both'
+  // With nothing beside the coil the field line choices are hidden, so none show.
+  const showCoilField =
+    s.source === 'battery' ? s.fieldLines !== 'none' : s.source === 'magnet' && (s.fieldLines === 'coil' || s.fieldLines === 'both')
   const fieldLines: FieldLine[] = []
   if (showMagnetField) fieldLines.push(...magnetFieldLines(magnet!, s.lineCount, magnet!.y - FIELD_MARGIN))
   if (showCoilField && down !== null) {

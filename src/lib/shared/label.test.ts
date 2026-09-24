@@ -62,6 +62,8 @@ describe('a label in the page address', () => {
     [{ mode: 'blank', text: 'default' }, '~'],
     [{ mode: 'none', text: 'default' }, ''],
     [{ mode: 'text', text: '~x' }, '~~x'],
+    [{ mode: 'text', text: '' }, '~_'],
+    [{ mode: 'text', text: '~_' }, '~~_'],
   ]
   test.each(cases)('%o', (label, raw) => {
     expect(encodeLabel(label)).toBe(raw)

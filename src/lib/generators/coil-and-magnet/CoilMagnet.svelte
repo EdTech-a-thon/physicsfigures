@@ -107,7 +107,7 @@
     {#each fig.coil.front as d}<path {d} stroke={p.wire} stroke-width="3.5" />{/each}
     {#each fig.coil.leads as l}
       <line x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} stroke={p.wire} stroke-width="3.5" />
-      {#if !fig.meter}<circle cx={l.x2} cy={l.y2 + 5} r="5" fill="#fff" stroke={p.ink} stroke-width="2" />{/if}
+      {#if !fig.circuit.length}<circle cx={l.x2} cy={l.y2 + 5} r="5" fill="#fff" stroke={p.ink} stroke-width="2" />{/if}
     {/each}
     {#each fig.currentArrows as a}
       <polygon

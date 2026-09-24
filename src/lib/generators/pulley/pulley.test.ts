@@ -41,6 +41,13 @@ describe('Atwood machine', () => {
     expect(bLower.objects[1].at.y).toBeGreaterThan(bLower.objects[0].at.y)
   })
 
+  test('big objects with gravity on still hang below the wheel, on strings', () => {
+    const f = make({ aSize: 2, bSize: 2, gravity: true })
+    const [wheel] = f.wheels
+    for (const o of f.objects) expect(o.at.y - o.height).toBeGreaterThan(wheel.cy + wheel.r)
+    for (const o of f.objects) expect(o.at.y).toBeLessThanOrEqual(f.height)
+  })
+
   test('everything fits in the figure', () => {
     for (const lower of ['neither', 'a', 'b'] as const) {
       const f = make({ aSize: 2, bSize: 2, lower })

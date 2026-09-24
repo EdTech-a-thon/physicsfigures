@@ -169,17 +169,22 @@ export function italicPieces(text: string): { text: string; italic: boolean }[] 
   }))
 }
 
-/** A label in a page address: its text, "~" for a blank line, or empty for none. */
+/** A label in a page address: its text, "~" for a blank line, empty for none,
+ *  and "~_" for Text with nothing typed yet. */
 export function encodeLabel(label: Label): string {
   if (label.mode === 'none') return ''
   if (label.mode === 'blank') return '~'
+  if (label.text === '') return EMPTY_TEXT
   return label.text.startsWith('~') ? `~${label.text}` : label.text
 }
+
+const EMPTY_TEXT = '~_'
 
 export function decodeLabel(raw: string | null | undefined, fallback: Label): Label {
   if (raw === null || raw === undefined) return { ...fallback }
   if (raw === '') return { mode: 'none', text: fallback.text }
   if (raw === '~') return { mode: 'blank', text: fallback.text }
+  if (raw === EMPTY_TEXT) return { mode: 'text', text: '' }
   return { mode: 'text', text: raw.startsWith('~~') ? raw.slice(1) : raw }
 }
 
