@@ -12,7 +12,7 @@
   let { children } = $props()
 
   // Cloudflare Web Analytics beacon; the token is set in Vercel's production env only.
-  const beacon = import.meta.env.VITE_CF_BEACON_TOKEN
+  const beacon = import.meta.env.CF_BEACON_TOKEN
   const onGenerator = $derived(!!findGenerator(page.url.pathname))
 </script>
 
