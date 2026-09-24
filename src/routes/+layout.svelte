@@ -18,7 +18,7 @@
 
 <svelte:head>
   {#if beacon}
-    <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon={JSON.stringify({ token: beacon })}></script>
+    <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon={JSON.stringify({ token: beacon, spa: false })}></script>
   {/if}
 </svelte:head>
 
