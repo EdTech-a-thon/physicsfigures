@@ -53,4 +53,12 @@
     --caret-placeholder-font: system-ui, sans-serif;
   }
   .label-input :global(.label-space) { display: inline-block; width: 0.3em; color: transparent; }
+  /* Caret raises every sub/superscript box, so a lone subscript sits up where a
+     superscript would. Here the box is a column (superscript over subscript)
+     whose baseline is its first line, set as far off the baseline as
+     FigureLabel sets them: a subscript down 0.3, a superscript up 0.45.
+     Lengths are in the box's own 0.6em font size. */
+  .label-input :global(.caret-field .subsup) { display: inline-flex; flex-direction: column; line-height: 1.25; vertical-align: 0.75em; }
+  .label-input :global(.caret-field .subsup > .subscript) { float: none; }
+  .label-input :global(.caret-field .subsup:not(:has(> .superscript))) { vertical-align: -0.5em; }
 </style>
