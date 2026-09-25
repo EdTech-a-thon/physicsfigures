@@ -12,7 +12,7 @@
 
 import type { Label } from '$lib/shared/label'
 import { labelRuns } from '$lib/shared/label'
-import type { Circuit, Item, Part, PartKind } from './tree'
+import type { Circuit, Group, Item, Part, PartKind } from './tree'
 
 export interface Pt {
   x: number
@@ -360,7 +360,7 @@ const SOURCE_KINDS = new Set<PartKind>(['battery', 'switch', 'ammeter'])
 const MAX_SOURCE_PARTS = 3
 
 /** The loop split into the source side and the parallel group, when it's drawn as a ladder. */
-export function ladderOf(circuit: Circuit): { rest: Item[]; group: Item & { type: 'parallel' } } | null {
+export function ladderOf(circuit: Circuit): { rest: Item[]; group: Group } | null {
   const at = circuit.items.findIndex((i) => i.type === 'parallel')
   const group = circuit.items[at]
   if (!group || group.type !== 'parallel') return null
@@ -370,7 +370,7 @@ export function ladderOf(circuit: Circuit): { rest: Item[]; group: Item & { type
   return ok && rest.some((i) => i.type === 'part' && i.kind === 'battery') ? { rest, group } : null
 }
 
-function ladderDrawing(rest: Item[], group: Item & { type: 'parallel' }): Drawing {
+function ladderDrawing(rest: Item[], group: Group): Drawing {
   const out: Drawing = { wires: [], dots: [], parts: [], labels: [], letters: [], meters: [] }
   const source = seriesBlock(rest, true)
   const rungs = group.items.map((b) => itemBlock(b, true))
