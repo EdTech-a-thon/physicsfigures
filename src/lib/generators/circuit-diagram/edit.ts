@@ -141,6 +141,25 @@ export function moveItem(circuit: Circuit, path: Path, by: -1 | 1): { circuit: C
   return { circuit: next, path: [...path.slice(0, -1), path.at(-1)! + by] }
 }
 
+function* itemsOf(items: Item[]): Generator<Item> {
+  for (const item of items) {
+    yield item
+    if (item.type !== 'part') yield* itemsOf(item.items)
+  }
+}
+
+/** The first letter no point uses yet, for a new point. */
+export function nextLetter(circuit: Circuit): string {
+  const used = new Set([...itemsOf(circuit.items)].map((i) => i.point?.text))
+  return [...'ABCDEFGHJKLMNPQRSTUVWXYZ'].find((l) => !used.has(l)) ?? 'P'
+}
+
+/** A label for a new branch's current arrow: I₁, I₂… after those already used. */
+export function nextCurrentLabel(circuit: Circuit): string {
+  const used = new Set([...itemsOf(circuit.items)].map((i) => i.current?.label.text))
+  for (let n = 1; ; n++) if (!used.has(`I_${n}`)) return `I_${n}`
+}
+
 /** Change a part's kind, starting its value and kind options afresh. */
 export function setKind(circuit: Circuit, path: Path, kind: PartKind): Circuit {
   return edit(circuit, (c) => {

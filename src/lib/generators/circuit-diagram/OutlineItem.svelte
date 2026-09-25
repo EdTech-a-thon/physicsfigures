@@ -7,6 +7,10 @@
   const SUB: Record<string, string> = { 0: '₀', 1: '₁', 2: '₂', 3: '₃', 4: '₄', 5: '₅', 6: '₆', 7: '₇', 8: '₈', 9: '₉', '+': '₊', '-': '₋' }
   const SUP: Record<string, string> = { 0: '⁰', 1: '¹', 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶', 7: '⁷', 8: '⁸', 9: '⁹', '+': '⁺', '-': '⁻' }
 
+  /** What to call an item when saying where something is: "R₁", "the parallel group". */
+  export const itemName = (item: import('./tree').Item) =>
+    item.type === 'part' ? plainLabel(item.name) || KIND_NAMES[item.kind].toLowerCase() : item.type === 'parallel' ? 'the parallel group' : 'the series run'
+
   /** A label as plain text for a summary: "R_1" reads R₁, "4 Omega" reads 4 Ω. */
   export function plainLabel(label: Label): string {
     if (label.mode === 'none') return ''
@@ -29,7 +33,9 @@
   import { ArrowDown, ArrowUp, Plus, Trash2 } from '@lucide/svelte'
   import Choice from '$lib/shared/Choice.svelte'
   import LabelField from '$lib/shared/LabelField.svelte'
-  import { addPart, canMove, cantAdd, cantRemove, edit, itemAt, moveItem, removeItem, setKind, type Path } from './edit'
+  import CurrentArrow from './CurrentArrow.svelte'
+  import { addPart, canMove, cantAdd, cantRemove, edit, itemAt, moveItem, nextCurrentLabel, removeItem, setKind, type Path } from './edit'
+  import Gap from './Gap.svelte'
   import Self from './OutlineItem.svelte'
   import { DEFAULT_VOLTMETER, PART_KINDS, type Circuit, type Item } from './tree'
 
@@ -72,6 +78,13 @@
     item.type === 'part' ? '' : item.type === 'parallel' ? `In parallel · ${item.items.length} branches` : `In series · ${item.items.length} parts`,
   )
   const partSummary = $derived(item.type === 'part' ? [plainLabel(item.name), plainLabel(item.value)].filter(Boolean).join(' · ') : '')</script>
+
+{#snippet extras()}
+  {#if within === 'parallel'}
+    <CurrentArrow holder={item} what="this branch" newLabel={() => nextCurrentLabel(circuit)} />
+  {/if}
+  {@render voltmeter()}
+{/snippet}
 
 {#snippet voltmeter()}
   <label class="check">
@@ -136,7 +149,7 @@
         {/if}
         <div class="field">Name <LabelField name="Name" bind:label={part.name} /></div>
         <div class="field">Value <LabelField name="Value" placeholder={part.kind === 'resistor' ? '4 ohm' : ''} bind:label={part.value} /></div>
-        {@render voltmeter()}
+        {@render extras()}
         {@render actions()}
       </div>
     </details>
@@ -146,13 +159,16 @@
       <details class="row head" open={openKey === key} ontoggle={toggle}>
         <summary><span class="kind">{groupSummary}</span></summary>
         <div class="body">
-          {@render voltmeter()}
+          {@render extras()}
           {@render actions()}
         </div>
       </details>
       <ol class="children">
         {#each group.items as child, i (i)}
           <Self {circuit} item={child} path={[...path, i]} within={group.type} {onedit} bind:openKey />
+          {#if group.type === 'series' && i < group.items.length - 1}
+            <Gap {circuit} item={child} where="between {itemName(child)} and {itemName(group.items[i + 1])}" />
+          {/if}
         {/each}
       </ol>
     </div>

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { buildCircuit, labelBox, ladderOf, meterBox, partBox, type Box, type CircuitFigure, type Pt } from './layout'
+import { arrowBox, buildCircuit, labelBox, ladderOf, meterBox, partBox, pointBox, type Box, type CircuitFigure, type Pt } from './layout'
 import { cleanCircuit, DEFAULT_CIRCUIT, encodeCircuit, MAX_DEPTH, MAX_PARTS, newGroup, newPart, type Circuit, type Item, type PartKind } from './tree'
 
 const p = (kind: PartKind = 'resistor', over: Partial<ReturnType<typeof newPart>> = {}) => ({ ...newPart(kind), ...over })
@@ -28,18 +28,24 @@ function randomCircuit(rand: () => number): Circuit {
       open: rand() < 0.5,
       cells: rand() < 0.5 ? 2 : 1,
       voltmeter: voltmeter(),
+      ...extras(),
     })
   }
+  // A point after an item and an arrow on it, sometimes; tidying keeps them only where they belong.
+  const extras = () => ({
+    point: rand() < 0.25 ? { mode: 'text' as const, text: 'B' } : null,
+    current: rand() < 0.3 ? { dir: rand() < 0.5 ? ('forward' as const) : ('backward' as const), label: { mode: 'text' as const, text: 'I_2' } } : null,
+  })
   const voltmeter = () => (rand() < 0.15 ? { mode: rand() < 0.5 ? ('text' as const) : ('none' as const), text: 'V_2' } : null)
   const item = (depth: number, inParallel: boolean): Item => {
     if (budget < 2 || depth > MAX_DEPTH || rand() < 0.55) return part()
     const n = 2 + Math.floor(rand() * 2)
     const group = newGroup(inParallel ? 'series' : 'parallel', Array.from({ length: n }, () => (budget > 0 ? item(depth + 1, !inParallel) : part())))
-    return { ...group, voltmeter: voltmeter() }
+    return { ...group, voltmeter: voltmeter(), ...extras() }
   }
   const items: Item[] = [p('battery')]
   while (budget > 0 && items.length < 5) items.push(item(1, false))
-  return cleanCircuit({ items, current: null })
+  return cleanCircuit({ items, current: rand() < 0.3 ? { dir: 'forward', label: { mode: 'text', text: 'I' } } : null })
 }
 
 const inside = (a: Box, b: Box, tol = 0) => a.left >= b.left - tol && a.right <= b.right + tol && a.top >= b.top - tol && a.bottom <= b.bottom + tol
@@ -53,6 +59,13 @@ function cuts([a, b]: readonly [Pt, Pt], box: Box, tol = 1.5): boolean {
   const acrossY = y0 === y1 ? y0 > box.top + tol && y0 < box.bottom - tol : y0 < box.bottom - tol && y1 > box.top + tol
   return acrossX && acrossY
 }
+/** Is a point on one of the figure's wires? */
+function onWire(fig: CircuitFigure, q: Pt): boolean {
+  return segments(fig).some(([a, b]) =>
+    a.x === b.x ? Math.abs(q.x - a.x) < 0.01 && q.y >= Math.min(a.y, b.y) && q.y <= Math.max(a.y, b.y) : Math.abs(q.y - a.y) < 0.01 && q.x >= Math.min(a.x, b.x) && q.x <= Math.max(a.x, b.x),
+  )
+}
+
 /** Do two wires cross (rather than meet at an end or a T)? */
 function cross([a, b]: readonly [Pt, Pt], [c, d]: readonly [Pt, Pt]): boolean {
   const h = a.y === b.y ? [a, b] : c.y === d.y ? [c, d] : null
@@ -69,7 +82,11 @@ function checkFigure(fig: CircuitFigure) {
   const parts = [...fig.parts.map(partBox), ...fig.meters.map(meterBox)]
   // Letters inside meters sit in their part's box; polarity marks must stay clear of everything.
   const marks = fig.letters.filter((l) => l.text === '+' || l.text === '−').map((l) => ({ left: l.x - 5, right: l.x + 5, top: l.y - 6, bottom: l.y + 6 }))
-  const labels = [...fig.labels.map(labelBox), ...marks]
+  const labels = [...fig.labels.map(labelBox), ...marks, ...fig.arrows.map(arrowBox)]
+  // Points sit on wires, but mustn't touch parts, labels or each other.
+  const points = fig.points.map(pointBox)
+  for (const pt of points) for (const b of [...parts, ...labels]) expect(overlap(pt, b, 0), 'a point overlaps something').toBe(false)
+  for (const pt of fig.points) expect(onWire(fig, pt), 'a point is off its wire').toBe(true)
   for (const b of [...parts, ...labels]) expect(inside(b, frame, 0.5)).toBe(true)
   for (const q of fig.wires.flat()) expect(inside({ left: q.x, right: q.x, top: q.y, bottom: q.y }, frame)).toBe(true)
   const things = [...parts, ...labels]
@@ -78,6 +95,66 @@ function checkFigure(fig: CircuitFigure) {
   for (const w of wires) for (const b of things) expect(cuts(w, b), 'a wire runs through a part or label').toBe(false)
   for (let i = 0; i < wires.length; i++) for (let j = i + 1; j < wires.length; j++) expect(cross(wires[i], wires[j]), 'wires cross').toBe(false)
 }
+
+describe('current arrows and points', () => {
+  const arrow = (dir: 'forward' | 'backward', text = 'I_1') => ({ dir, label: { mode: 'text' as const, text } })
+  const point = (text: string) => ({ mode: 'text' as const, text })
+
+  test("a branch's arrow sits beside its own wire, pointing the way it was set", () => {
+    for (const dir of ['forward', 'backward'] as const) {
+      const c = loop(p('battery'), p(), parallel(p(), p('resistor', { current: arrow(dir) })))
+      const fig = buildCircuit(c, { title: false, polarity: false })
+      checkFigure(fig)
+      const [a] = fig.arrows
+      const [r2, r3] = fig.parts.slice(2)
+      // R₃'s branch is the lower one; its arrow is just above that wire, between the group's buses.
+      expect(a.y1).toBe(a.y2)
+      expect(a.y1).toBeLessThan(r3.y)
+      expect(a.y1).toBeGreaterThan(r2.y)
+      expect(Math.sign(a.x2 - a.x1)).toBe(dir === 'forward' ? 1 : -1)
+    }
+  })
+
+  test("the main loop's arrow goes on the battery's side, and on a ladder's left rung", () => {
+    const c = cleanCircuit({ items: DEFAULT_CIRCUIT.items, current: arrow('forward', 'I') })
+    const fig = buildCircuit(c, { title: false, polarity: false })
+    checkFigure(fig)
+    const [a] = fig.arrows
+    const battery = fig.parts[0]
+    expect(a.x1).toBe(a.x2)
+    expect(a.x1).toBeLessThan(battery.x)
+    // Forward on the left side is up.
+    expect(a.y2).toBeLessThan(a.y1)
+    const ladder = cleanCircuit({ items: [p('battery'), parallel(p(), p())], current: arrow('backward', 'I') })
+    const lfig = buildCircuit(ladder, { title: false, polarity: false })
+    checkFigure(lfig)
+    expect(lfig.arrows[0].x1).toBeLessThan(lfig.parts[0].x)
+    expect(lfig.arrows[0].y2).toBeGreaterThan(lfig.arrows[0].y1)
+  })
+
+  test('points sit on the wire in their gap, each with its letter', () => {
+    const c = loop(p('battery', { point: point('A') }), p('resistor', { point: point('B') }), p(), parallel(p(), p()))
+    ;(c.items[3] as Item).point = point('C')
+    const fig = buildCircuit(cleanCircuit(c), { title: false, polarity: false })
+    checkFigure(fig)
+    expect(fig.points).toHaveLength(3)
+    const letters = fig.labels.map((l) => l.label.text)
+    expect(letters).toEqual(expect.arrayContaining(['A', 'B', 'C']))
+    // B is between R₁ and R₂ on the top side.
+    const [, r1, r2] = fig.parts
+    const b = fig.points.find((q) => q.y === r1.y && q.x > r1.x && q.x < r2.x)
+    expect(b).toBeDefined()
+  })
+
+  test('a point after the parallel group of a ladder goes on the bottom rail', () => {
+    const c = loop(p('battery'), { ...parallel(p(), p()), point: point('D') })
+    const fig = buildCircuit(c, { title: false, polarity: false })
+    checkFigure(fig)
+    const [pt] = fig.points
+    const bottom = Math.max(...fig.wires.flat().map((q) => q.y))
+    expect(pt.y).toBe(bottom)
+  })
+})
 
 describe('meters', () => {
   const V = { mode: 'text' as const, text: 'V_1' }

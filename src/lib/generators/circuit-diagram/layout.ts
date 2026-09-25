@@ -12,7 +12,8 @@
 
 import type { Label } from '$lib/shared/label'
 import { labelRuns } from '$lib/shared/label'
-import type { Circuit, Group, Item, Part, PartKind } from './tree'
+import type { Segment } from '$lib/shared/vector'
+import type { Arrow, Circuit, Group, Item, Part, PartKind } from './tree'
 
 export interface Pt {
   x: number
@@ -46,6 +47,10 @@ export interface CircuitFigure {
   parts: PlacedPart[]
   /** Voltmeters' circles (their letters are in letters). */
   meters: Pt[]
+  /** Lettered points on wires (their letters are labels). */
+  points: Pt[]
+  /** Current arrows, beside their wires (their labels are in labels). */
+  arrows: Segment[]
   labels: PlacedLabel[]
   /** Upright text centered on a point, like the letter in a meter. */
   letters: Letter[]
@@ -119,6 +124,10 @@ type Prim =
   | { t: 'part'; part: Part; at: Pt }
   /** A voltmeter's circle. */
   | { t: 'meter'; at: Pt }
+  /** A lettered point on a wire (its letter is a label). */
+  | { t: 'point'; at: Pt }
+  /** A current arrow, drawn beside its wire. */
+  | { t: 'arrow'; from: Pt; to: Pt }
   /** A label beside `at`, on the up (−1) or down (+1) side. */
   | { t: 'label'; label: Label; at: Pt; side: -1 | 1 }
   /** Upright text centered on `at`: a meter's letter, or a battery's + or − (drawn only when polarity marks are on). */
@@ -134,7 +143,9 @@ interface Block {
 const shift = (prims: Prim[], du: number, dv: number): Prim[] =>
   prims.map((p) => {
     const move = (q: Pt) => ({ x: q.x + du, y: q.y + dv })
-    return p.t === 'wire' ? { ...p, pts: p.pts.map(move) } : { ...p, at: move(p.at) }
+    if (p.t === 'wire') return { ...p, pts: p.pts.map(move) }
+    if (p.t === 'arrow') return { ...p, from: move(p.from), to: move(p.to) }
+    return { ...p, at: move(p.at) }
   })
 
 function partBlock(part: Part, vertical: boolean): Block {
@@ -170,16 +181,59 @@ function partBlock(part: Part, vertical: boolean): Block {
   }
 }
 
+/** Blocks end to end. A point in the gap after an item gets a stretch of wire of its own. */
 function seriesBlock(items: Item[], vertical: boolean): Block {
   const block: Block = { len: 0, up: 0, down: 0, prims: [] }
-  for (const item of items) {
-    const b = itemBlock(item, vertical)
+  const add = (b: Block) => {
     block.prims.push(...shift(b.prims, block.len, 0))
     block.len += b.len
     block.up = Math.max(block.up, b.up)
     block.down = Math.max(block.down, b.down)
   }
+  for (const item of items) {
+    add(itemBlock(item, vertical))
+    if (item.point) add(pointBlock(item.point, vertical))
+  }
   return block
+}
+
+const POINT_LEAD = 30
+export const POINT_R = 3.8
+
+/** A stretch of wire with a lettered point in the middle, its label on the outer side. */
+function pointBlock(label: Label, vertical: boolean): Block {
+  const shown = shows(label) ? label : null
+  const len = Math.max(POINT_LEAD, shown ? labelAlong(shown, vertical) + 12 : 0)
+  const prims: Prim[] = [
+    { t: 'wire', pts: [{ x: 0, y: 0 }, { x: len, y: 0 }] },
+    { t: 'point', at: { x: len / 2, y: 0 } },
+  ]
+  if (shown) prims.push({ t: 'label', label: shown, at: { x: len / 2, y: -POINT_R }, side: -1 })
+  return { len, up: POINT_R + (shown ? LABEL_GAP + labelReach(shown, vertical) : 0), down: POINT_R, prims }
+}
+
+const ARROW_LEN = 30
+const ARROW_OFFSET = 11
+export const ARROW_HEAD = 10
+
+/** A stretch of wire before a block with a current arrow beside it, on the outer side, then the block. */
+function withArrow(inner: Block, arrow: Arrow, vertical: boolean): Block {
+  const shown = shows(arrow.label) ? arrow.label : null
+  const lead = Math.max(ARROW_LEN + 20, shown ? labelAlong(shown, vertical) + 12 : 0)
+  const [from, to] = arrow.dir === 'forward' ? [lead / 2 - ARROW_LEN / 2, lead / 2 + ARROW_LEN / 2] : [lead / 2 + ARROW_LEN / 2, lead / 2 - ARROW_LEN / 2]
+  const prims: Prim[] = [
+    { t: 'wire', pts: [{ x: 0, y: 0 }, { x: lead, y: 0 }] },
+    { t: 'arrow', from: { x: from, y: -ARROW_OFFSET }, to: { x: to, y: -ARROW_OFFSET } },
+    ...shift(inner.prims, lead, 0),
+  ]
+  const tip = ARROW_OFFSET + ARROW_HEAD * 0.45
+  if (shown) prims.push({ t: 'label', label: shown, at: { x: lead / 2, y: -tip }, side: -1 })
+  return {
+    len: lead + inner.len,
+    up: Math.max(inner.up, tip + (shown ? LABEL_GAP + labelReach(shown, vertical) : 0)),
+    down: inner.down,
+    prims,
+  }
 }
 
 function parallelBlock(branches: Item[], vertical: boolean): Block {
@@ -206,8 +260,10 @@ function parallelBlock(branches: Item[], vertical: boolean): Block {
 }
 
 function itemBlock(item: Item, vertical: boolean): Block {
-  const block = item.type === 'part' ? partBlock(item, vertical) : item.type === 'series' ? seriesBlock(item.items, vertical) : parallelBlock(item.items, vertical)
-  return item.voltmeter ? voltmeterBlock(block, item.voltmeter, vertical) : block
+  let block = item.type === 'part' ? partBlock(item, vertical) : item.type === 'series' ? seriesBlock(item.items, vertical) : parallelBlock(item.items, vertical)
+  if (item.voltmeter) block = voltmeterBlock(block, item.voltmeter, vertical)
+  // Only a branch of a parallel group has a current arrow (tidying sees to that).
+  return item.current ? withArrow(block, item.current, vertical) : block
 }
 
 export const METER_R = 15
@@ -262,9 +318,13 @@ interface Drawing {
   dots: Pt[]
   parts: PlacedPart[]
   meters: Pt[]
+  points: Pt[]
+  arrows: Segment[]
   labels: PlacedLabel[]
   letters: (Letter & { polarity: boolean })[]
 }
+
+const emptyDrawing = (): Drawing => ({ wires: [], dots: [], parts: [], meters: [], points: [], arrows: [], labels: [], letters: [] })
 
 /** A label's baseline point and anchor, given the side of `at` it sits on (as a direction on screen). */
 function placeLabel(label: Label, at: Pt, dir: Pt): PlacedLabel {
@@ -282,6 +342,11 @@ function draw(out: Drawing, block: Block, frame: Frame) {
     else if (p.t === 'part') out.parts.push({ part: p.part, ...s(p.at), angle: frame.angle })
     else if (p.t === 'letter') out.letters.push({ text: p.text, ...s(p.at), size: p.size, polarity: p.polarity })
     else if (p.t === 'meter') out.meters.push(s(p.at))
+    else if (p.t === 'point') out.points.push(s(p.at))
+    else if (p.t === 'arrow') {
+      const [a, b] = [s(p.from), s(p.to)]
+      out.arrows.push({ x1: a.x, y1: a.y, x2: b.x, y2: b.y })
+    }
     else out.labels.push(placeLabel(p.label, s(p.at), turn({ x: 0, y: p.side })))
   }
 }
@@ -311,9 +376,10 @@ function sides(items: Item[]): { left: Item[]; top: Item[]; right: Item[]; botto
 }
 
 function loopDrawing(circuit: Circuit): Drawing {
-  const out: Drawing = { wires: [], dots: [], parts: [], labels: [], letters: [], meters: [] }
+  const out = emptyDrawing()
   const s = sides(batteryFirst(circuit.items))
-  const left = seriesBlock(s.left, true)
+  // The main loop's current arrow goes at the start of the left side, before its first part.
+  const left = circuit.current ? withArrow(seriesBlock(s.left, true), circuit.current, true) : seriesBlock(s.left, true)
   const top = seriesBlock(s.top, false)
   const right = seriesBlock(s.right, true)
   const bottom = seriesBlock(s.bottom, false)
@@ -367,12 +433,14 @@ export function ladderOf(circuit: Circuit): { rest: Item[]; group: Group } | nul
   // Everything after the group, round to everything before it.
   const rest = [...circuit.items.slice(at + 1), ...circuit.items.slice(0, at)]
   const ok = rest.length > 0 && rest.length <= MAX_SOURCE_PARTS && rest.every((i) => i.type === 'part' && SOURCE_KINDS.has(i.kind))
-  return ok && rest.some((i) => i.type === 'part' && i.kind === 'battery') ? { rest, group } : null
+  // A voltmeter across the whole group has nowhere to go on a ladder.
+  return ok && !group.voltmeter && rest.some((i) => i.type === 'part' && i.kind === 'battery') ? { rest, group } : null
 }
 
-function ladderDrawing(rest: Item[], group: Group): Drawing {
-  const out: Drawing = { wires: [], dots: [], parts: [], labels: [], letters: [], meters: [] }
-  const source = seriesBlock(rest, true)
+function ladderDrawing(rest: Item[], group: Group, current: Arrow | null): Drawing {
+  const out = emptyDrawing()
+  // The main loop's current arrow goes on the left rung, below its parts.
+  const source = current ? withArrow(seriesBlock(rest, true), current, true) : seriesBlock(rest, true)
   const rungs = group.items.map((b) => itemBlock(b, true))
   const H = Math.max(...[source, ...rungs].map((b) => b.len)) + 2 * RAIL_LEAD
   // Going up, a block's up side is on the left; going down, on the right.
@@ -395,6 +463,12 @@ function ladderDrawing(rest: Item[], group: Group): Drawing {
   })
   const end = xs.at(-1)!
   out.wires.push([{ x: 0, y: 0 }, { x: end, y: 0 }], [{ x: 0, y: H }, { x: end, y: H }])
+  // A point after the group, back to the source: on the bottom rail, between the first two rungs.
+  if (group.point) {
+    const at = { x: xs[1] / 2, y: H }
+    out.points.push(at)
+    if (shows(group.point)) out.labels.push(placeLabel(group.point, { x: at.x, y: H + POINT_R }, { x: 0, y: 1 }))
+  }
   return out
 }
 
@@ -413,6 +487,14 @@ export function labelBox(l: PlacedLabel): Box {
   return { left, right: left + w, top: l.y - ASCENT, bottom: l.y + DESCENT + LABEL_SIZE * 0.15 }
 }
 
+/** The box round a current arrow, its head included. */
+export function arrowBox(a: Segment): Box {
+  const half = ARROW_HEAD * 0.45
+  return { left: Math.min(a.x1, a.x2) - half, right: Math.max(a.x1, a.x2) + half, top: Math.min(a.y1, a.y2) - half, bottom: Math.max(a.y1, a.y2) + half }
+}
+
+export const pointBox = (p: Pt): Box => ({ left: p.x - POINT_R, right: p.x + POINT_R, top: p.y - POINT_R, bottom: p.y + POINT_R })
+
 export const meterBox = (m: Pt): Box => ({ left: m.x - METER_R, right: m.x + METER_R, top: m.y - METER_R, bottom: m.y + METER_R })
 
 /** The box round a placed part's symbol. */
@@ -427,7 +509,7 @@ export function partBox(p: PlacedPart): Box {
 
 export function buildCircuit(circuit: Circuit, options: LayoutOptions): CircuitFigure {
   const ladder = ladderOf(circuit)
-  const d = ladder ? ladderDrawing(ladder.rest, ladder.group) : loopDrawing(circuit)
+  const d = ladder ? ladderDrawing(ladder.rest, ladder.group, circuit.current) : loopDrawing(circuit)
 
   // Fit the figure round everything drawn.
   const boxes: Box[] = [
@@ -435,6 +517,7 @@ export function buildCircuit(circuit: Circuit, options: LayoutOptions): CircuitF
     ...d.parts.map(partBox),
     ...d.meters.map(meterBox),
     ...d.labels.map(labelBox),
+    ...d.arrows.map(arrowBox),
   ]
   const bounds = {
     left: Math.min(...boxes.map((b) => b.left)),
@@ -456,6 +539,11 @@ export function buildCircuit(circuit: Circuit, options: LayoutOptions): CircuitF
     dots: d.dots.map(move),
     parts: d.parts.map((p) => ({ ...p, ...move(p) })),
     meters: d.meters.map(move),
+    points: d.points.map(move),
+    arrows: d.arrows.map((a) => {
+      const [p1, p2] = [move({ x: a.x1, y: a.y1 }), move({ x: a.x2, y: a.y2 })]
+      return { x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y }
+    }),
     labels: d.labels.map((l) => ({ ...l, ...move(l) })),
     letters: d.letters.filter((l) => options.polarity || !l.polarity).map(({ polarity: _, ...l }) => ({ ...l, ...move(l) })),
     title: options.title ? { x: width / 2, y: MARGIN + TITLE_SIZE * 0.8 } : null,
