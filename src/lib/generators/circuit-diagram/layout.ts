@@ -46,13 +46,22 @@ export interface CircuitFigure {
   parts: PlacedPart[]
   labels: PlacedLabel[]
   /** Upright text centered on a point, like the letter in a meter. */
-  letters: { text: string; x: number; y: number }[]
+  letters: Letter[]
   /** Where the chart title's baseline middle goes, when it has one. */
   title: Pt | null
 }
 
+export interface Letter {
+  text: string
+  x: number
+  y: number
+  size: number
+}
+
 export interface LayoutOptions {
   title: boolean
+  /** + and − beside each battery. */
+  polarity: boolean
 }
 
 export const LABEL_SIZE = 20
@@ -108,7 +117,8 @@ type Prim =
   | { t: 'part'; part: Part; at: Pt }
   /** A label beside `at`, on the up (−1) or down (+1) side. */
   | { t: 'label'; label: Label; at: Pt; side: -1 | 1 }
-  | { t: 'letter'; text: string; at: Pt }
+  /** Upright text centered on `at`: a meter's letter, or a battery's + or − (drawn only when polarity marks are on). */
+  | { t: 'letter'; text: string; at: Pt; size: number; polarity: boolean }
 
 interface Block {
   len: number
@@ -135,7 +145,17 @@ function partBlock(part: Part, vertical: boolean): Block {
     { t: 'wire', pts: [{ x: mid + size.half, y: 0 }, { x: len, y: 0 }] },
     { t: 'part', part, at: { x: mid, y: 0 } },
   ]
-  if (part.kind === 'ammeter') prims.push({ t: 'letter', text: 'A', at: { x: mid, y: 0 } })
+  if (part.kind === 'ammeter') prims.push({ t: 'letter', text: 'A', at: { x: mid, y: 0 }, size: 18, polarity: false })
+  if (part.kind === 'battery') {
+    // + by the long plate (forward, unless it's turned round) and − by the
+    // short one, just off the ends of the plates, inside the symbol's height.
+    const plus = part.flip ? -1 : 1
+    const off = size.half + 9
+    prims.push(
+      { t: 'letter', text: '+', at: { x: mid + plus * off, y: -10 }, size: 16, polarity: true },
+      { t: 'letter', text: '−', at: { x: mid - plus * off, y: -10 }, size: 16, polarity: true },
+    )
+  }
   if (name) prims.push({ t: 'label', label: name, at: { x: mid, y: -size.up }, side: -1 })
   if (value) prims.push({ t: 'label', label: value, at: { x: mid, y: size.down }, side: 1 })
   return {
@@ -205,7 +225,7 @@ interface Drawing {
   dots: Pt[]
   parts: PlacedPart[]
   labels: PlacedLabel[]
-  letters: { text: string; x: number; y: number }[]
+  letters: (Letter & { polarity: boolean })[]
 }
 
 /** A label's baseline point and anchor, given the side of `at` it sits on (as a direction on screen). */
@@ -222,7 +242,7 @@ function draw(out: Drawing, block: Block, frame: Frame) {
     if (p.t === 'wire') out.wires.push(p.pts.map(s))
     else if (p.t === 'dot') out.dots.push(s(p.at))
     else if (p.t === 'part') out.parts.push({ part: p.part, ...s(p.at), angle: frame.angle })
-    else if (p.t === 'letter') out.letters.push({ text: p.text, ...s(p.at) })
+    else if (p.t === 'letter') out.letters.push({ text: p.text, ...s(p.at), size: p.size, polarity: p.polarity })
     else out.labels.push(placeLabel(p.label, s(p.at), turn({ x: 0, y: p.side })))
   }
 }
@@ -343,7 +363,7 @@ export function buildCircuit(circuit: Circuit, options: LayoutOptions): CircuitF
     dots: d.dots.map(move),
     parts: d.parts.map((p) => ({ ...p, ...move(p) })),
     labels: d.labels.map((l) => ({ ...l, ...move(l) })),
-    letters: d.letters.map((l) => ({ ...l, ...move(l) })),
+    letters: d.letters.filter((l) => options.polarity || !l.polarity).map(({ polarity: _, ...l }) => ({ ...l, ...move(l) })),
     title: options.title ? { x: width / 2, y: MARGIN + TITLE_SIZE * 0.8 } : null,
   }
 }

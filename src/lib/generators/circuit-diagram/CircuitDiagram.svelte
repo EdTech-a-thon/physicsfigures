@@ -12,7 +12,7 @@
   let { settings, id = 'c' }: { settings: CircuitSettings; id?: string } = $props()
 
   const hasTitle = $derived(settings.title.mode !== 'none' && (settings.title.mode === 'blank' || settings.title.text.trim() !== ''))
-  const fig = $derived(buildCircuit(settings.circuit, { title: hasTitle }))
+  const fig = $derived(buildCircuit(settings.circuit, { title: hasTitle, polarity: settings.polarity }))
   const p = $derived(palette(settings.color))
   /** Symbols stand out in blue on slides; wires stay black. */
   const partInk = $derived(settings.color ? '#1d4ed8' : p.ink)
@@ -42,7 +42,7 @@
   </g>
 
   {#each fig.letters as l}
-    <text x={mx(l.x)} y={l.y + 6} text-anchor="middle" font-family={SERIF} font-size="18" fill={partInk}>{l.text}</text>
+    <text x={mx(l.x)} y={l.y + l.size * 0.34} text-anchor="middle" font-family={SERIF} font-size={l.size} fill={partInk}>{l.text}</text>
   {/each}
   {#each fig.labels as l}
     <FigureLabel label={l.label} x={mx(l.x)} y={l.y} anchor={mirrorAnchor(settings.mirror, l.anchor)} size={LABEL_SIZE} color={p.ink} />

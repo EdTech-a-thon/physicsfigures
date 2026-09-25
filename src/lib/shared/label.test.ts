@@ -10,6 +10,7 @@ describe('typing a label', () => {
     ['2 kg', '2 kg'],
     ['omega', 'ω'],
     ['Omega', 'Ω'],
+    ['4 ohm', '4 Ω'],
   ])('%s shows as %s', (typed, shown) => {
     expect(typeLabel(typed)).toBe(shown)
   })
@@ -86,5 +87,16 @@ describe('italics', () => {
     expect(italic('20 cm')).toEqual([])
     expect(italic('block')).toEqual([])
     expect(italic('F = ma')).toEqual(['F', 'ma'])
+  })
+
+  test('a short word after a number and a space is a unit', () => {
+    expect(italic('12 V')).toEqual([])
+    expect(italic('4 Ω')).toEqual([])
+    expect(italic('4Ω')).toEqual([])
+    expect(italic('I = 2 A')).toEqual(['I'])
+    expect(italic('V = 5 N')).toEqual(['V'])
+    // With no space it's still a product of quantities.
+    expect(italic('2mg')).toEqual(['mg'])
+    expect(italic('R_x')).toEqual(['R', 'x'])
   })
 })

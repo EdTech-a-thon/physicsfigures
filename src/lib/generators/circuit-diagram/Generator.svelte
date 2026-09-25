@@ -22,7 +22,7 @@
     return `${parts} part${parts === 1 ? '' : 's'}${groups ? ` · ${groups} group${groups === 1 ? '' : 's'}` : ''}`
   })
 
-  const styleSummary = $derived(s.symbols === 'us' ? 'US symbols' : 'IEC symbols')
+  const styleSummary = $derived(`${s.symbols === 'us' ? 'US' : 'IEC'} symbols${s.polarity ? ' · + and − marks' : ''}`)
   const titleSummary = $derived(s.title.mode === 'text' ? `“${s.title.text}”` : s.title.mode === 'blank' ? 'blank' : 'none')
 </script>
 
@@ -37,6 +37,7 @@
         Symbol style
         <Choice name="Symbol style" options={[['us', 'US (zigzag resistor)'], ['iec', 'IEC (box resistor)']]} bind:value={gen.settings.symbols} />
       </div>
+      <label class="check"><input type="checkbox" bind:checked={gen.settings.polarity} /> + and − beside each battery</label>
     </Section>
 
     <Section title="Chart title" icon={Heading} summary={titleSummary}>

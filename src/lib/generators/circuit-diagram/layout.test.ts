@@ -60,7 +60,9 @@ function cross([a, b]: readonly [Pt, Pt], [c, d]: readonly [Pt, Pt]): boolean {
 function checkFigure(fig: CircuitFigure) {
   const frame = { left: 0, right: fig.width, top: 0, bottom: fig.height }
   const parts = fig.parts.map(partBox)
-  const labels = fig.labels.map(labelBox)
+  // Letters inside meters sit in their part's box; polarity marks must stay clear of everything.
+  const marks = fig.letters.filter((l) => l.text === '+' || l.text === '−').map((l) => ({ left: l.x - 5, right: l.x + 5, top: l.y - 6, bottom: l.y + 6 }))
+  const labels = [...fig.labels.map(labelBox), ...marks]
   for (const b of [...parts, ...labels]) expect(inside(b, frame, 0.5)).toBe(true)
   for (const q of fig.wires.flat()) expect(inside({ left: q.x, right: q.x, top: q.y, bottom: q.y }, frame)).toBe(true)
   const things = [...parts, ...labels]
@@ -72,7 +74,7 @@ function checkFigure(fig: CircuitFigure) {
 
 describe('the loop layout', () => {
   test('the default circuit: a battery on the left, the rest along the top', () => {
-    const fig = buildCircuit(DEFAULT_CIRCUIT, { title: false })
+    const fig = buildCircuit(DEFAULT_CIRCUIT, { title: false, polarity: false })
     checkFigure(fig)
     const [battery, r1, r2, r3] = fig.parts
     expect(battery.angle).toBe(270)
@@ -86,37 +88,67 @@ describe('the loop layout', () => {
   })
 
   test('a battery later in the loop is brought round to the left', () => {
-    const fig = buildCircuit(loop(p(), p(), p('battery')), { title: false })
+    const fig = buildCircuit(loop(p(), p(), p('battery')), { title: false, polarity: false })
     const battery = fig.parts.find((q) => q.part.kind === 'battery')!
     expect(battery.angle).toBe(270)
   })
 
   test('a long loop goes on down the right side, then back along the bottom', () => {
-    const long = buildCircuit(loop(p('battery'), ...Array.from({ length: 7 }, () => p('resistor', { value: shown }))), { title: false })
+    const long = buildCircuit(loop(p('battery'), ...Array.from({ length: 7 }, () => p('resistor', { value: shown }))), { title: false, polarity: false })
     checkFigure(long)
     expect(new Set(long.parts.map((q) => q.angle))).toEqual(new Set([270, 0, 90]))
     const wide = { mode: 'text' as const, text: 'R_{heater} = 120 Omega' }
-    const longer = buildCircuit(loop(p('battery'), ...Array.from({ length: 7 }, () => p('resistor', { name: wide, auto: false }))), { title: false })
+    const longer = buildCircuit(loop(p('battery'), ...Array.from({ length: 7 }, () => p('resistor', { name: wide, auto: false }))), { title: false, polarity: false })
     checkFigure(longer)
     expect(new Set(longer.parts.map((q) => q.angle))).toEqual(new Set([270, 0, 90, 180]))
   })
 
   test('nested groups fit inside one another', () => {
     const c = loop(p('battery'), parallel(p('resistor', { value: shown }), series(p('bulb', { value: shown }), parallel(p(), p('resistor', { value: shown }))), p()))
-    checkFigure(buildCircuit(c, { title: false }))
+    checkFigure(buildCircuit(c, { title: false, polarity: false }))
   })
 
   test('wires are joined into long lines, not left in pieces', () => {
-    const fig = buildCircuit(loop(p('battery'), p()), { title: false })
+    const fig = buildCircuit(loop(p('battery'), p()), { title: false, polarity: false })
     // Two parts in a loop: one wire runs from the resistor round to the battery, one back.
     expect(fig.wires).toHaveLength(2)
   })
 
   test('a title makes room for itself above the circuit', () => {
-    const plain = buildCircuit(DEFAULT_CIRCUIT, { title: false })
-    const titled = buildCircuit(DEFAULT_CIRCUIT, { title: true })
+    const plain = buildCircuit(DEFAULT_CIRCUIT, { title: false, polarity: false })
+    const titled = buildCircuit(DEFAULT_CIRCUIT, { title: true, polarity: false })
     expect(titled.height).toBeGreaterThan(plain.height)
     expect(Math.min(...titled.wires.flat().map((q) => q.y))).toBeGreaterThan(titled.title!.y)
+  })
+
+  test('names go on the outside of the loop and values on the inside', () => {
+    const value = { mode: 'text' as const, text: '12 V' }
+    const fig = buildCircuit(loop(p('battery', { value }), p('resistor', { value: shown })), { title: false, polarity: false })
+    const [battery, resistor] = fig.parts
+    const [bName, bValue, rName, rValue] = fig.labels
+    // The battery is on the left side: its name to its left, its value to its right.
+    expect(bName).toMatchObject({ anchor: 'end' })
+    expect(bName.x).toBeLessThan(battery.x)
+    expect(bValue).toMatchObject({ anchor: 'start' })
+    expect(bValue.x).toBeGreaterThan(battery.x)
+    // The resistor is along the top: its name above, its value below.
+    expect(rName.y).toBeLessThan(resistor.y)
+    expect(rValue.y).toBeGreaterThan(resistor.y)
+  })
+
+  test('polarity marks: + by the long plate, following a battery turned round', () => {
+    const marks = (flip: boolean) => {
+      const fig = buildCircuit(loop(p('battery', { flip }), p()), { title: false, polarity: true })
+      const plus = fig.letters.find((l) => l.text === '+')!
+      const minus = fig.letters.find((l) => l.text === '−')!
+      return { plus, minus }
+    }
+    // On the left side the current travels up, so a battery's + faces up.
+    const up = marks(false)
+    expect(up.plus.y).toBeLessThan(up.minus.y)
+    const down = marks(true)
+    expect(down.plus.y).toBeGreaterThan(down.minus.y)
+    expect(buildCircuit(loop(p('battery'), p()), { title: false, polarity: false }).letters).toHaveLength(0)
   })
 
   test('random circuits: nothing overlaps, no wires cross, everything fits', () => {
@@ -124,7 +156,7 @@ describe('the loop layout', () => {
     for (let i = 0; i < 300; i++) {
       const c = randomCircuit(rand)
       try {
-        checkFigure(buildCircuit(c, { title: false }))
+        checkFigure(buildCircuit(c, { title: false, polarity: i % 2 === 0 }))
       } catch (e) {
         throw new Error(`circuit ${encodeCircuit(c)}: ${e}`)
       }
