@@ -105,3 +105,29 @@ _Avoid_: Angle arc (alone)
 **Component**:
 One of the two thinner, dashed, lighter arrows along the horizontal and vertical that add up to an angled force. Components often give away the answer, so each force's are off unless turned on.
 _Avoid_: Projection, part
+
+### Circuit Diagram
+
+**Circuit Diagram**:
+A schematic of one closed loop of parts, some of them in parallel groups, for current, resistance and Kirchhoff problems. Its generator is the Circuit Diagram Generator. It is drawn from a series/parallel tree, not placed by hand (ADR 0004).
+_Avoid_: Circuit (alone, for the figure), schematic (fine as a search word), wiring diagram
+
+**Part**:
+One symbol on a circuit diagram: a battery, resistor, bulb, switch or ammeter. Each has a name label (R₁) and a value label (4 Ω). Names are numbered automatically until the teacher types one. A voltmeter is not a part: it goes across a part or group.
+_Avoid_: Component, element, device
+
+**Group**:
+Parts joined in series or in parallel inside a circuit. A parallel group holds two or more branches.
+_Avoid_: Block, cluster, sub-circuit
+
+**Branch**:
+A run of wire that carries one current: the main loop, or one branch of a parallel group. A current arrow belongs to a branch.
+_Avoid_: Path, leg, rung (except for the drawing of a ladder)
+
+**Point**:
+A lettered dot on a wire (A, B…), for questions like "the potential difference between A and B". Points sit in the gaps between parts.
+_Avoid_: Node, junction (a junction is where wires meet, drawn as a dot with no letter), terminal
+
+**Symbol style**:
+US symbols (a zigzag resistor, a bulb with a looped filament) or IEC symbols (a box resistor, a bulb with a cross).
+_Avoid_: Standard, notation

@@ -33,6 +33,8 @@ const SYMBOLS: [string, string][] = [
   ['tau', 'τ'],
   ['phi', 'φ'],
   ['omega', 'ω'],
+  // Either types Ω; an address writes it Omega (the last name for a symbol wins).
+  ['ohm', 'Ω'],
   ['Omega', 'Ω'],
   ['deg', '°'],
 ]
@@ -155,17 +157,19 @@ export function labelRuns(text: string): Run[] {
 }
 
 /** Unit words set upright even though they're short. */
-const UNITS = new Set(['kg', 'cm', 'mm', 'km', 'ms', 'Hz', 'kJ', 'kW', 'kN', 'eV', 'mA', 'mV', 'kV', 'Pa', 'Wb', 'mol', 'rad', 'kPa'])
+const UNITS = new Set(['kg', 'cm', 'mm', 'km', 'ms', 'Hz', 'kJ', 'kW', 'kN', 'eV', 'mA', 'mV', 'kV', 'Pa', 'Wb', 'mol', 'rad', 'kPa', 'Ω', 'kΩ', 'MΩ'])
 
 /**
  * A run of label text split into pieces to set in italics or upright, the way
  * physics sets quantities in italics (m, v, F, θ, mg) and words and units
- * upright (kg, cm, "block").
+ * upright (kg, cm, "block"). A short word after a number and a space is a
+ * unit too: 12 V, 2 A, 5 N.
  */
 export function italicPieces(text: string): { text: string; italic: boolean }[] {
-  return (text.match(/\p{L}+|[^\p{L}]+/gu) ?? []).map((t) => ({
+  const pieces = text.match(/\p{L}+|[^\p{L}]+/gu) ?? []
+  return pieces.map((t, i) => ({
     text: t,
-    italic: /^\p{L}{1,2}$/u.test(t) && !UNITS.has(t),
+    italic: /^\p{L}{1,2}$/u.test(t) && !UNITS.has(t) && !/\d\s+$/.test(pieces[i - 1] ?? ''),
   }))
 }
 
