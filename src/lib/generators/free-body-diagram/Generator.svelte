@@ -9,7 +9,7 @@
   import type { Label } from '$lib/shared/label'
   import Section from '$lib/shared/Section.svelte'
   import FreeBody from './FreeBody.svelte'
-  import { fbdSettings, MAX_FORCES, STARTERS, starterForce } from './settings'
+  import { componentLabel, fbdSettings, MAX_FORCES, onAxis, STARTERS, starterForce, type Force } from './settings'
 
   const gen = createGenerator(fbdSettings, 'free-body-diagram')
   const s = $derived(gen.clean)
@@ -30,6 +30,14 @@
     if (!full) gen.settings.forces.push(starterForce(starter))
   }
   const remove = (i: number) => gen.settings.forces.splice(i, 1)
+  // Turning components on names them after the force (T → T_x), unless the teacher already named them.
+  function nameComponents(force: Force) {
+    if (force.label.mode !== 'text') return
+    for (const [axis, key] of [['x', 'xLabel'], ['y', 'yLabel']] as const) {
+      const l = force[key]
+      if (l.mode === 'text' && l.text === `F_${axis}`) l.text = componentLabel(force.label.text, axis)
+    }
+  }
 </script>
 
 <GeneratorLayout title="Free Body Diagram Generator" {gen} filename="free-body-diagram">
@@ -82,6 +90,21 @@
             </span>
           </label>
           <div class="field">Label <LabelField name="Force {i + 1} label" bind:label={force.label} /></div>
+          {#if !onAxis(s.forces[i]?.angle ?? 0)}
+            <label class="check"><input type="checkbox" bind:checked={force.arc} /> Mark its angle</label>
+            {#if force.arc}
+              <div class="field">
+                Measured from
+                <Choice name="Force {i + 1} angle measured from" options={[['h', 'Horizontal'], ['v', 'Vertical']]} bind:value={force.from} />
+              </div>
+              <div class="field">Angle label <LabelField name="Force {i + 1} angle label" bind:label={force.arcLabel} /></div>
+            {/if}
+            <label class="check"><input type="checkbox" bind:checked={force.parts} onchange={(e) => e.currentTarget.checked && nameComponents(force)} /> Show its components</label>
+            {#if force.parts}
+              <div class="field">Horizontal label <LabelField name="Force {i + 1} horizontal component label" bind:label={force.xLabel} /></div>
+              <div class="field">Vertical label <LabelField name="Force {i + 1} vertical component label" bind:label={force.yLabel} /></div>
+            {/if}
+          {/if}
         </div>
       {/each}
 

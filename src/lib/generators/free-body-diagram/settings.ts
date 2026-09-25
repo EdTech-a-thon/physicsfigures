@@ -11,6 +11,14 @@ const force = {
   /** Its length, relative to the others: equal forces are drawn equal. */
   length: number(1, 0.25, 2),
   label: label({ mode: 'text', text: 'F' }),
+  /** An angle mark from a dashed horizontal or vertical reference line, for a force that isn't along either. */
+  arc: bool(false),
+  from: choice('h', ['h', 'v']),
+  arcLabel: label({ mode: 'text', text: 'theta' }),
+  /** Its components along the horizontal and vertical, which often give away the answer. */
+  parts: bool(false),
+  xLabel: label({ mode: 'text', text: 'F_x' }),
+  yLabel: label({ mode: 'text', text: 'F_y' }),
 }
 
 export const MAX_FORCES = 8
@@ -29,7 +37,27 @@ export const STARTERS = [
   { name: 'Force', angle: 0, length: 1, label: 'F' },
 ] as const
 
-export const starterForce = (s: (typeof STARTERS)[number]): Force => ({ angle: s.angle, length: s.length, label: text(s.label) })
+/** A force with every setting at its default. */
+const ROW_DEFAULTS = Object.fromEntries(Object.entries(force).map(([key, f]) => [key, f.default])) as Force
+
+export const starterForce = (s: (typeof STARTERS)[number]): Force => ({
+  ...structuredClone(ROW_DEFAULTS),
+  angle: s.angle,
+  length: s.length,
+  label: text(s.label),
+})
+
+/** Is this force along the horizontal or vertical, so it has no angle to mark and no components? */
+export const onAxis = (angle: number) => angle % 90 === 0
+
+/** A component's label from its force's: T → T_x, F_g → F_{gx}, F_{air} → F_{airx}. */
+export function componentLabel(text: string, axis: 'x' | 'y'): string {
+  const braced = /^(.*)_\{(.*)\}$/.exec(text)
+  if (braced) return `${braced[1]}_{${braced[2]}${axis}}`
+  const single = /^(.*)_(.)$/u.exec(text)
+  if (single) return `${single[1]}_{${single[2]}${axis}}`
+  return text ? `${text}_${axis}` : ''
+}
 
 export const fbdSettings = defineSettings({
   body: choice('dot', ['dot', 'block', 'ball', 'cart']),

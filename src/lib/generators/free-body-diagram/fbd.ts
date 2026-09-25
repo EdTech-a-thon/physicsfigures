@@ -10,11 +10,14 @@
 import { labelRuns, type Label } from '$lib/shared/label'
 import { objectHeight, objectWidth, type ObjectKind } from '$lib/shared/objects'
 import { labelPoint, type LabeledVector, type Point, type Segment } from '$lib/shared/vector'
-import type { FbdSettings } from './settings'
+import { onAxis, type FbdSettings } from './settings'
 
 /** How long a force of length 1 is past the edge of the body. */
 export const UNIT = 90
 export const DOT_R = 6
+/** How far past the body's farthest corner an angle mark's arc is, and how much farther each further arc from the same line. */
+const ARC_GAP = 30
+const ARC_STEP = 24
 const MARGIN = 18
 /** The smallest figure, so a body with one short force isn't a sliver. */
 const MIN_SIZE = 160
@@ -27,6 +30,28 @@ export interface FigureForce extends LabeledVector<'force'> {
   index: number
   /** Its angle as drawn, after Mirror. */
   angle: number
+}
+
+/** An angle mark: a dashed reference line from the body, and an arc from it to the force. */
+export interface AngleMark {
+  index: number
+  ref: Segment
+  /** The arc's ends, its radius, and its SVG sweep flag. */
+  arc: { from: Point; to: Point; r: number; sweep: 0 | 1 }
+  label: Label
+  labelAt: Point
+}
+
+/** A force's components along the horizontal and vertical, with dotted guides from the force's tip. */
+export interface Components {
+  index: number
+  x: Segment
+  y: Segment
+  guides: Segment[]
+  xLabel: Label
+  xLabelAt: Point
+  yLabel: Label
+  yLabelAt: Point
 }
 
 export interface FbdFigure {
@@ -43,6 +68,8 @@ export interface FbdFigure {
     height: number
   }
   forces: FigureForce[]
+  marks: AngleMark[]
+  components: Components[]
   /** Every outermost point drawn, for fitting (and tests). */
   extent: Point[]
 }
@@ -101,10 +128,68 @@ function layout(s: FbdSettings): FbdFigure {
     return { kind: 'force', index, angle, v, label: f.label, labelAt: pt(labelAt.x, labelAt.y) }
   })
 
+  // Angle marks. The arc runs from the nearer half of the reference line to
+  // the force, so it's never more than 90°, clear of the body's corners.
+  // Arcs from the same half-line step outward so they don't lie on each other.
+  const outside = kind === 'dot' ? DOT_R : kind === 'ball' ? h / 2 : Math.hypot(w, h) / 2
+  const arcsFrom = new Map<number, number>()
+  const marks: AngleMark[] = []
+  const components: Components[] = []
+  for (const f of forces) {
+    const setting = s.forces[f.index]
+    if (onAxis(setting.angle)) continue
+    const d = direction(f.angle)
+    if (setting.arc) {
+      const refAngle = setting.from === 'h' ? (d.x > 0 ? 0 : 180) : d.y < 0 ? 90 : 270
+      // How far the force is turned from the reference, counterclockwise.
+      const delta = ((f.angle - refAngle + 540) % 360) - 180
+      const n = arcsFrom.get(refAngle) ?? 0
+      arcsFrom.set(refAngle, n + 1)
+      const r = outside + ARC_GAP + n * ARC_STEP
+      const rd = direction(refAngle)
+      // The component along the same half-line already draws part of it.
+      const along = setting.parts ? Math.abs(setting.from === 'h' ? f.v.x2 : f.v.y2) : 0
+      const start = Math.max(toEdge(kind, w, h, rd), along)
+      const end = Math.max(start, r + 16)
+      const ref = seg(pt(rd.x * start, rd.y * start), pt(rd.x * end, rd.y * end))
+      const mid = direction(refAngle + delta / 2)
+      const lw = labelWidth(setting.arcLabel)
+      const lr = r + 12 + (lw / 2) * Math.abs(mid.x) + 9 * Math.abs(mid.y)
+      marks.push({
+        index: f.index,
+        ref,
+        // On the page y points down, so counterclockwise is SVG's negative sweep.
+        arc: { from: pt(rd.x * r, rd.y * r), to: pt(d.x * r, d.y * r), r, sweep: delta > 0 ? 0 : 1 },
+        label: setting.arcLabel,
+        labelAt: pt(mid.x * lr, mid.y * lr),
+      })
+    }
+    if (setting.parts) {
+      const tip = { x: f.v.x2, y: f.v.y2 }
+      const xEnd = pt(tip.x, 0)
+      const yEnd = pt(0, tip.y)
+      // Each component's label goes on its far side from the force, clear of the body.
+      const below = (kind === 'dot' ? 0 : h / 2) + 20
+      const beside = (kind === 'dot' ? 0 : w / 2) + 12 + labelWidth(setting.yLabel) / 2
+      components.push({
+        index: f.index,
+        x: seg(middle, xEnd),
+        y: seg(middle, yEnd),
+        guides: [seg(tip, xEnd), seg(tip, yEnd)],
+        xLabel: setting.xLabel,
+        xLabelAt: pt(tip.x / 2, tip.y < 0 ? below : -below),
+        yLabel: setting.yLabel,
+        yLabelAt: pt(tip.x > 0 ? -beside : beside, tip.y / 2),
+      })
+    }
+  }
+
   const extent = [
     pt(-w / 2, -h / 2),
     pt(w / 2, h / 2),
     ...forces.flatMap((f) => [pt(f.v.x2, f.v.y2), ...boxCorners(labelBox(f.labelAt, f.label))]),
+    ...marks.flatMap((m) => [pt(m.ref.x2, m.ref.y2), ...boxCorners(labelBox(m.labelAt, m.label))]),
+    ...components.flatMap((c) => [...boxCorners(labelBox(c.xLabelAt, c.xLabel)), ...boxCorners(labelBox(c.yLabelAt, c.yLabel))]),
   ]
 
   return {
@@ -112,6 +197,8 @@ function layout(s: FbdSettings): FbdFigure {
     height: 0,
     body: { kind, size: s.bodySize, middle, at: pt(0, h / 2), width: w, height: h },
     forces,
+    marks,
+    components,
     extent,
   }
 }
@@ -130,6 +217,15 @@ function shifted(f: FbdFigure, dx: number, dy: number): FbdFigure {
     ...f,
     body: { ...f.body, middle: p(f.body.middle), at: p(f.body.at) },
     forces: f.forces.map((v) => ({ ...v, v: sg(v.v), labelAt: p(v.labelAt) })),
+    marks: f.marks.map((m) => ({ ...m, ref: sg(m.ref), arc: { ...m.arc, from: p(m.arc.from), to: p(m.arc.to) }, labelAt: p(m.labelAt) })),
+    components: f.components.map((c) => ({
+      ...c,
+      x: sg(c.x),
+      y: sg(c.y),
+      guides: c.guides.map(sg),
+      xLabelAt: p(c.xLabelAt),
+      yLabelAt: p(c.yLabelAt),
+    })),
     extent: f.extent.map(p),
   }
 }
