@@ -20,8 +20,11 @@
     italic?: boolean
     /** A white outline, so the label reads over lines behind it. */
     halo?: boolean
+    /** The id of a LabelBackdrop filter: a white box behind the whole label instead of the outline. */
+    backdrop?: string
   }
-  let { label, x, y, anchor = 'middle', size = 18, color = '#111827', blank = size * 2.4, italic = true, halo = true }: Props = $props()
+  let { label, x, y, anchor = 'middle', size = 18, color = '#111827', blank = size * 2.4, italic = true, halo = true, backdrop }: Props = $props()
+  const outlined = $derived(halo && !backdrop)
 
   const pieces = (text: string) => italicPieces(text).map((p) => ({ t: p.text, italic: italic && p.italic }))
 
@@ -52,8 +55,9 @@
     font-family={SERIF}
     font-size={size}
     fill={color}
-    stroke={halo ? '#fff' : undefined}
-    stroke-width={halo ? 4 : undefined}
+    stroke={outlined ? '#fff' : undefined}
+    stroke-width={outlined ? 4 : undefined}
+    filter={backdrop ? `url(#${backdrop})` : undefined}
     stroke-linejoin="round"
     paint-order="stroke"
   >

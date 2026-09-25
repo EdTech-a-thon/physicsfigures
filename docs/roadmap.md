@@ -15,6 +15,16 @@ acceleration beside it. Left out on purpose, until teachers ask: tilted
 per figure, and placing a label by hand. Its force list is the settings `list`
 field, which Torque Balance can use for its hanging objects.
 
+## Projectile Motion (built)
+
+A ball or dot launched from level ground or off a cliff, with its real
+parabolic path, the launch velocity, its angle and components, g, the ball at
+equal time steps (lettered or not), and marks for the maximum height, range
+and cliff height. Kept simple on purpose, next to the textbook figure it came
+from: no formulas on the figure, no axes, no velocity arrows along the path,
+no downward launches, no landing on a raised or sloped surface, and no air
+resistance, until teachers ask.
+
 ## Torque Balance
 
 A beam balanced on a pivot with objects hanging from it at different
