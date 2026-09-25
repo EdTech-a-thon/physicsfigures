@@ -106,6 +106,24 @@ _Avoid_: Angle arc (alone)
 One of the two thinner, dashed, lighter arrows along the horizontal and vertical that add up to an angled force. Components often give away the answer, so each force's are off unless turned on.
 _Avoid_: Projection, part
 
+### Projectile Motion
+
+**Projectile Motion**:
+A figure of a ball or dot launched to the right from level ground or off the top of a cliff, with the path it follows until it lands on the ground. The ground is a plain line, like an axis, not a hatched floor, and on it the ball's middle sits on the line at the launch and the landing. Its generator is the Projectile Motion Generator. The path is the real parabola for the launch angle and cliff height, drawn to fit, while its vectors are drawn about the right size, not to scale.
+_Avoid_: Trajectory diagram (fine as a search word), projectile (alone, for the figure), cannon
+
+**Launch**:
+Where the ball starts and how: from level ground at 10° to 85°, or from a cliff at 0° (a horizontal launch) to 85°, with the launch velocity, its angle mark and components drawn there. Air resistance is never drawn.
+_Avoid_: Throw, kick, fire
+
+**Path**:
+The dashed curve the ball's middle follows from the launch to the ground. It can be hidden for "sketch the path" questions.
+_Avoid_: Trajectory (fine as a search word), arc (that's an angle mark's), curve
+
+**Time step**:
+The ball drawn again along the path at equal times after the launch, the last one where it lands, so its even spacing across and uneven spacing down show. They can be lettered A, B, C… from the launch.
+_Avoid_: Snapshot, frame, strobe (fine as a search word), point (that's a circuit's)
+
 ### Circuit Diagram
 
 **Circuit Diagram**:

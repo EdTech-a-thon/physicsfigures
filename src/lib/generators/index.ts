@@ -7,6 +7,7 @@ import CoilMagnetPreview from './coil-and-magnet/Preview.svelte'
 import FreeBodyPreview from './free-body-diagram/Preview.svelte'
 import InclinedPlanePreview from './inclined-plane/Preview.svelte'
 import PulleyPreview from './pulley/Preview.svelte'
+import ProjectileMotionPreview from './projectile-motion/Preview.svelte'
 import CircuitDiagramPreview from './circuit-diagram/Preview.svelte'
 
 export interface Generator {
@@ -81,6 +82,20 @@ export const GENERATORS: Generator[] = [
       "newton's laws", 'mechanics', 'printable',
     ],
     Preview: PulleyPreview,
+  },
+  {
+    id: 'projectile-motion',
+    name: 'Projectile Motion Generator',
+    path: '/projectile-motion',
+    blurb: 'A ball launched from the ground or a cliff, with its path.',
+    description:
+      'Make a printable projectile motion figure for your class: a ball launched at any angle from level ground or off a cliff, with its path, launch velocity and components, maximum height and range labeled or left blank, then copy it into a worksheet or test.',
+    keywords: [
+      'projectile', 'projectile motion', 'trajectory', 'parabola', 'path', 'launch', 'launch angle', 'thrown', 'kicked',
+      'cannon', 'cliff', 'horizontal launch', 'range', 'maximum height', 'time of flight', 'velocity', 'components',
+      'gravity', 'free fall', 'kinematics', '2d motion', 'two dimensional motion', 'mechanics', 'printable',
+    ],
+    Preview: ProjectileMotionPreview,
   },
   {
     id: 'circuit-diagram',
