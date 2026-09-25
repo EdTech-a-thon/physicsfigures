@@ -1,5 +1,5 @@
-import { GENERATORS } from '$lib/generators/index.js'
-import { SITE_URL } from '$lib/site/config.js'
+import { GENERATORS } from '$lib/generators'
+import { SITE_URL } from '$lib/site/config'
 
 export const prerender = true
 

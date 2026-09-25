@@ -1,23 +1,24 @@
-<script>
+<script lang="ts">
   // A small centered dialog. The parent shows it with {#if}; Escape, the close
   // button or a click on the backdrop call onclose. Focus stays inside while
   // it is open, starts on [data-autofocus] (or the first control) and goes
   // back where it was when it closes.
+  import type { Snippet } from 'svelte'
   import { X } from '@lucide/svelte'
 
-  let { title, onclose, children } = $props()
+  let { title, onclose, children }: { title: string; onclose: () => void; children: Snippet } = $props()
   const titleId = $props.id()
 
-  let dialog = $state()
-  const focusable = () => Array.from(dialog?.querySelectorAll('a[href], button:not(:disabled), input') ?? [])
+  let dialog: HTMLElement | undefined = $state()
+  const focusable = () => Array.from(dialog?.querySelectorAll<HTMLElement>('a[href], button:not(:disabled), input') ?? [])
 
   $effect(() => {
-    const previous = document.activeElement
-    requestAnimationFrame(() => (dialog?.querySelector('[data-autofocus]') ?? focusable()[0])?.focus())
+    const previous = document.activeElement as HTMLElement | null
+    requestAnimationFrame(() => (dialog?.querySelector<HTMLElement>('[data-autofocus]') ?? focusable()[0])?.focus())
     return () => requestAnimationFrame(() => previous?.isConnected && previous.focus())
   })
 
-  function onkeydown(event) {
+  function onkeydown(event: KeyboardEvent) {
     if (event.key === 'Escape') {
       event.preventDefault()
       onclose()
@@ -27,7 +28,7 @@
     const controls = focusable()
     if (!controls.length) return
     const first = controls[0]
-    const last = controls.at(-1)
+    const last = controls.at(-1)!
     if (event.shiftKey && document.activeElement === first) {
       event.preventDefault()
       last.focus()

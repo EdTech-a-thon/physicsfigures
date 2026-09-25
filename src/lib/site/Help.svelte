@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   // A question mark in the corner that opens a short dialog, like the other
   // teacher.dev tools. It looks just like Request a generator.
   import { CircleQuestionMark } from '@lucide/svelte'

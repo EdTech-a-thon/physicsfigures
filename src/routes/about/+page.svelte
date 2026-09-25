@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import Seo from '$lib/site/Seo.svelte'
 </script>
 

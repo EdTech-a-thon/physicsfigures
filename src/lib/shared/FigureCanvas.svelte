@@ -1,16 +1,27 @@
-<script>
+<script lang="ts">
   // The card every generator shows its figure in: an icon toolbar for getting
   // the figure out (copy, download, link) and undo/redo, above the figure
-  // itself. `svg` is the rendered figure to export; `history` comes from
-  // createHistory. Status messages appear as a toast over the figure.
+  // itself. `svg` is the rendered figure to export (when it isn't given, the
+  // first <svg> inside the card is); `history` comes from createHistory. Status messages appear as a toast over the figure.
   import { Copy, FileDown, ImageDown, Redo2, Share, Undo2 } from '@lucide/svelte'
-  import { copyPng, downloadPng, downloadSvg } from './exporting.js'
+  import type { Snippet } from 'svelte'
+  import { copyPng, downloadPng, downloadSvg } from './exporting'
+  import type { History } from './history.svelte'
 
-  let { svg, filename, history, children } = $props()
+  interface Props {
+    svg?: SVGSVGElement
+    filename: string
+    history: History
+    children: Snippet
+  }
+  let { svg, filename, history, children }: Props = $props()
+
+  let sheet: HTMLElement | undefined = $state()
+  const figure = () => svg ?? sheet?.querySelector('svg') ?? undefined
 
   let status = $state('')
-  let statusTimer
-  function flash(msg) {
+  let statusTimer: ReturnType<typeof setTimeout> | undefined
+  function flash(msg: string) {
     status = msg
     clearTimeout(statusTimer)
     statusTimer = setTimeout(() => (status = ''), 2200)
@@ -18,7 +29,9 @@
 
   async function copyImage() {
     try {
-      await copyPng(svg)
+      const el = figure()
+      if (!el) return
+      await copyPng(el)
       flash('Image copied. Paste it into your document.')
     } catch {
       flash('Your browser blocked copying. Try downloading a PNG instead.')
@@ -39,14 +52,14 @@
 <div class="card canvas">
   <div class="toolbar" role="toolbar" aria-label="Figure actions">
     <button class="icon-btn" aria-label="Copy image" data-tip="Copy image" onclick={copyImage}><Copy size={19} /></button>
-    <button class="icon-btn" aria-label="Download PNG" data-tip="Download PNG" onclick={() => downloadPng(svg, `${filename}.png`)}><ImageDown size={19} /></button>
-    <button class="icon-btn" aria-label="Download SVG" data-tip="Download SVG" onclick={() => downloadSvg(svg, `${filename}.svg`)}><FileDown size={19} /></button>
+    <button class="icon-btn" aria-label="Download PNG" data-tip="Download PNG" onclick={() => figure() && downloadPng(figure()!, `${filename}.png`)}><ImageDown size={19} /></button>
+    <button class="icon-btn" aria-label="Download SVG" data-tip="Download SVG" onclick={() => figure() && downloadSvg(figure()!, `${filename}.svg`)}><FileDown size={19} /></button>
     <button class="icon-btn" aria-label="Share link" data-tip="Share link" onclick={shareLink}><Share size={19} /></button>
     <span class="divider"></span>
     <button class="icon-btn" aria-label="Undo" data-tip="Undo" disabled={!history.canUndo} onclick={history.undo}><Undo2 size={19} /></button>
     <button class="icon-btn" aria-label="Redo" data-tip="Redo" disabled={!history.canRedo} onclick={history.redo}><Redo2 size={19} /></button>
   </div>
-  <div class="sheet">
+  <div class="sheet" bind:this={sheet}>
     {@render children()}
     <p class="status" class:shown={status} aria-live="polite">{status}</p>
   </div>
@@ -63,6 +76,9 @@
   }
   .sheet { position: relative; padding: 1rem; display: flex; justify-content: center; }
   .sheet :global(svg) { max-height: 74vh; width: auto; max-width: 100%; }
+  /* A faint edge round the figure's white background shows what will be copied.
+     It's page CSS, so exported pictures don't have it. */
+  .sheet :global(.paper) { stroke: var(--border); stroke-width: 1.5; }
   .status {
     position: absolute; left: 50%; bottom: 0.9rem; transform: translate(-50%, 0.4rem);
     max-width: calc(100% - 2rem); margin: 0; padding: 0.45rem 0.85rem; border-radius: 999px;

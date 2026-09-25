@@ -1,9 +1,10 @@
-<script>
+<script lang="ts">
   // A question-mark button that shows a short tip on hover or keyboard focus,
   // such as how to type a label.
+  import type { Snippet } from 'svelte'
   import { CircleHelp } from '@lucide/svelte'
 
-  let { id, label, children } = $props()
+  let { id, label, children }: { id: string; label: string; children: Snippet } = $props()
 </script>
 
 <span class="tip">

@@ -1,7 +1,7 @@
-<script>
+<script lang="ts">
   // Shown for a missing page or an error, with a way back to the directory.
   import { page } from '$app/state'
-  import { SITE_NAME } from '$lib/site/config.js'
+  import { SITE_NAME } from '$lib/site/config'
 
   const heading = $derived(page.status === 404 ? 'We couldn’t find that page' : 'Something went wrong')
 </script>
