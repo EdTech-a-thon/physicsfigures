@@ -1,0 +1,43 @@
+// Every choice the teacher makes on the Free Body Diagram Generator, with its
+// default: the first free body diagram every student draws, a dot with
+// gravity and the normal force (a book resting on a table).
+
+import { bool, choice, defineSettings, int, label, list, number, type SettingsOf } from '$lib/shared/settings'
+
+/** One force on the body. New fields go at the end, so old links keep working (see `list`). */
+const force = {
+  /** Which way it points, in degrees counterclockwise from the right. */
+  angle: int(0, 0, 359),
+  /** Its length, relative to the others: equal forces are drawn equal. */
+  length: number(1, 0.25, 2),
+  label: label({ mode: 'text', text: 'F' }),
+}
+
+export const MAX_FORCES = 8
+
+const text = (t: string) => ({ mode: 'text' as const, text: t })
+
+/** The starter buttons: each adds a force pointing the usual way, at a length that looks right beside the others. */
+export const STARTERS = [
+  { name: 'Gravity', angle: 270, length: 1, label: 'F_g' },
+  { name: 'Normal', angle: 90, length: 1, label: 'F_N' },
+  { name: 'Friction', angle: 180, length: 0.6, label: 'F_f' },
+  { name: 'Tension', angle: 90, length: 1, label: 'T' },
+  { name: 'Applied', angle: 0, length: 1, label: 'F_A' },
+  { name: 'Spring', angle: 180, length: 0.8, label: 'F_s' },
+  { name: 'Air resistance', angle: 90, length: 0.6, label: 'F_{air}' },
+  { name: 'Force', angle: 0, length: 1, label: 'F' },
+] as const
+
+export const starterForce = (s: (typeof STARTERS)[number]): Force => ({ angle: s.angle, length: s.length, label: text(s.label) })
+
+export const fbdSettings = defineSettings({
+  body: choice('dot', ['dot', 'block', 'ball', 'cart']),
+  bodySize: number(1, 0.5, 2),
+  forces: list(force, [starterForce(STARTERS[0]), starterForce(STARTERS[1])], MAX_FORCES),
+  mirror: bool(false),
+  color: bool(false),
+})
+
+export type FbdSettings = typeof fbdSettings.defaults
+export type Force = SettingsOf<typeof force>

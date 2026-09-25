@@ -83,3 +83,25 @@ _Avoid_: Pulley system, rope diagram
 **Setup**:
 One arrangement a Pulley figure can take: Atwood machine (two hanging objects over one fixed pulley), table and hanging mass, ramp and hanging mass, or block and tackle (one load held by 1 to 4 strands).
 _Avoid_: Mode, type, scenario
+
+### Free Body Diagram
+
+**Free Body Diagram**:
+A figure of one body alone, a dot or an Object, with every force on it drawn from its middle and nothing around it: no ramp, string or floor. Its generator is the Free Body Diagram Generator. The ramp or pulley a problem is about is an Inclined Plane or Pulley figure; its free body diagram is this one.
+_Avoid_: Force diagram (fine as a search word), FBD (fine as a search word)
+
+**Body**:
+What a Free Body Diagram is of: a dot (the usual AP convention) or a block, ball or cart. It has no label.
+_Avoid_: Particle, point mass
+
+**Force list**:
+The forces on a Free Body Diagram, up to eight, each with its own angle (counterclockwise from the right), length relative to the others, and label. Starter buttons add the usual ones (gravity, normal, friction, tension, applied, spring, air resistance) pointing the usual way.
+_Avoid_: Force slots
+
+**Angle mark**:
+An arc on a Free Body Diagram between an angled force and a dashed horizontal or vertical reference line, with its own label, measured from the nearer half of that line.
+_Avoid_: Angle arc (alone)
+
+**Component**:
+One of the two thinner, dashed, lighter arrows along the horizontal and vertical that add up to an angled force. Components often give away the answer, so each force's are off unless turned on.
+_Avoid_: Projection, part

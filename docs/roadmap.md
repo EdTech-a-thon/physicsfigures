@@ -1,9 +1,19 @@
 # Roadmap
 
 The first generators are **Coil and Magnet**, **Inclined Plane** and **Pulley**
-(see `CONTEXT.md` and ADR 0002). These came from the same teacher request and
-are planned next, in this order. Each still needs its own design questions
-before it is built.
+(see `CONTEXT.md` and ADR 0002), followed by the **Free Body Diagram**, the
+figure teachers search for most. The ones below came from the same teacher
+request and are planned next, in this order. Each still needs its own design
+questions before it is built.
+
+## Free Body Diagram (built)
+
+One body, a dot or an Object, with up to eight forces at any angle, drawn at
+relative lengths, with optional angle marks, components, and velocity or
+acceleration beside it. Left out on purpose, until teachers ask: tilted
+(along-the-slope) axes, plain x/y axes, a net force arrow, more than one body
+per figure, and placing a label by hand. Its force list is the settings `list`
+field, which Torque Balance can use for its hanging objects.
 
 ## Torque Balance
 
