@@ -26,11 +26,13 @@ lines.
 
 ## Circuits
 
-Circuit diagrams and schematics. "Any circuit" doesn't fit a settings form, so
-this needs its own round of design questions first, starting with the choice
-between set arrangements (such as three resistors in series or parallel,
-with a battery, meters and a switch) and something closer to a drawing
-canvas.
+Being built as the Circuit Diagram Generator: a series/parallel tree edited as
+an outline (ADR 0004). Left for later:
+
+- A pictorial style (drawn bulbs, D-cells, real-looking wires) for middle
+  school, drawn from the same tree
+- Capacitors, variable resistors, fuses, diodes and inductors
+- Bridge circuits, which a series/parallel tree can't describe
 
 ## Atomic Models
 

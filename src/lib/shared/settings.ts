@@ -7,7 +7,7 @@
 
 import { cleanLabel, decodeLabel, encodeLabel, type Label } from './label'
 
-interface Field<T> {
+export interface Field<T> {
   default: T
   clean(value: unknown): T
   encode(value: T): string
