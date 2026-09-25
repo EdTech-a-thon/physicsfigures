@@ -6,6 +6,7 @@ import type { Component } from 'svelte'
 import CoilMagnetPreview from './coil-and-magnet/Preview.svelte'
 import InclinedPlanePreview from './inclined-plane/Preview.svelte'
 import PulleyPreview from './pulley/Preview.svelte'
+import CircuitDiagramPreview from './circuit-diagram/Preview.svelte'
 
 export interface Generator {
   id: string
@@ -65,6 +66,20 @@ export const GENERATORS: Generator[] = [
       "newton's laws", 'mechanics', 'printable',
     ],
     Preview: PulleyPreview,
+  },
+  {
+    id: 'circuit-diagram',
+    name: 'Circuit Diagram Generator',
+    path: '/circuit-diagram',
+    blurb: 'A circuit schematic with parts in series and parallel.',
+    description:
+      'Make a printable circuit diagram for your class: batteries, resistors, bulbs, switches and meters in series and parallel, with their names and values labeled or left blank, then copy it into a worksheet or test.',
+    keywords: [
+      'circuit', 'circuits', 'schematic', 'electric', 'electricity', 'series', 'parallel', 'resistor', 'resistance',
+      'ohm', "ohm's law", 'kirchhoff', "kirchhoff's laws", 'battery', 'cell', 'emf', 'bulb', 'lamp', 'switch', 'ammeter',
+      'voltmeter', 'current', 'voltage', 'potential difference', 'equivalent resistance', 'printable',
+    ],
+    Preview: CircuitDiagramPreview,
   },
 ]
 

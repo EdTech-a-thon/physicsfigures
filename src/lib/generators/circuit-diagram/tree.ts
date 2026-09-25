@@ -370,6 +370,22 @@ export function decodeCircuit(raw: string): Circuit | undefined {
   }
 }
 
+// A written description, for screen readers. Labels are left out, so a blank
+// is never given away.
+
+const PART_WORDS: Record<PartKind, string> = { battery: 'a battery', resistor: 'a resistor', bulb: 'a bulb', switch: 'a switch', ammeter: 'an ammeter' }
+
+function describeItem(item: Item): string {
+  if (item.type === 'part') {
+    const words = item.kind === 'switch' ? `${item.open ? 'an open' : 'a closed'} switch` : PART_WORDS[item.kind]
+    return item.voltmeter ? `${words} with a voltmeter across it` : words
+  }
+  if (item.type === 'series') return item.items.map(describeItem).join(' then ')
+  return `${item.items.length} branches in parallel (${item.items.map(describeItem).join('; ')})`
+}
+
+export const describeCircuit = (circuit: Circuit) => `A circuit diagram: ${circuit.items.map(describeItem).join(', then ')}, and back to the start`
+
 /** The circuit as a settings field. */
 export const circuitField = (def: Circuit): Field<Circuit> => ({
   default: def,
