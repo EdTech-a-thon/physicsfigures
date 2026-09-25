@@ -39,7 +39,7 @@ Text drawn beside a part of a figure, such as m₁, 5 kg, 30°, θ, N or S. Each
 _Avoid_: Caption, tag, annotation
 
 **Vector**:
-An arrow drawn on a figure for a force, velocity or acceleration, such as gravity on a block or the motion of a magnet. It is drawn about the right size, not to scale, looks the same in every generator, and has its own label.
+An arrow drawn on a figure for a force, velocity or acceleration, such as gravity on a block or the motion of a magnet. It is drawn about the right size, not to scale, looks the same in every generator, and has its own label. Forces are solid; velocity and acceleration have a dashed shaft at full weight, so they're never read as forces, even photocopied. On a Free Body Diagram the teacher sets each force's length relative to the others, so equal forces are drawn equal.
 _Avoid_: Arrow (alone), force line
 
 **Chart title**:

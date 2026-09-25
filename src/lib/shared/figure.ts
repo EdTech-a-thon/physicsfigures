@@ -13,6 +13,8 @@ export interface Palette {
   hidden: string
   /** Vectors. */
   vector: string
+  /** A force's components, lighter than the force. */
+  component: string
   /** Field lines. */
   field: string
   /** Coil wire. */
@@ -37,6 +39,7 @@ export function palette(color: boolean): Palette {
       ink: INK,
       hidden: '#9ca3af',
       vector: INK,
+      component: '#6b7280',
       field: '#4b5563',
       wire: INK,
       north: '#4b5563',
@@ -51,6 +54,7 @@ export function palette(color: boolean): Palette {
     ink: INK,
     hidden: '#9ca3af',
     vector: '#7c3aed',
+    component: '#a78bfa',
     field: '#0f766e',
     wire: '#b45309',
     north: '#dc2626',

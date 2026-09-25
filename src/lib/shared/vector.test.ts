@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { arrow, labelPoint } from './vector'
+import { arrow, labelPoint, styleOf } from './vector'
 
 describe('arrow', () => {
   test('the shaft ends inside the head, and the head ends at the tip', () => {
@@ -25,5 +25,14 @@ describe('labelPoint', () => {
     const p = labelPoint({ x1: 0, y1: 0, x2: 0, y2: 100 }, { at: 'tip', gap: 15 })
     expect(p.x).toBeCloseTo(0)
     expect(p.y).toBeCloseTo(115)
+  })
+})
+
+describe('styleOf', () => {
+  test('velocity and acceleration are motion, the rest are forces', () => {
+    expect(styleOf('velocity')).toBe('motion')
+    expect(styleOf('acceleration')).toBe('motion')
+    expect(styleOf('gravity')).toBe('force')
+    expect(styleOf('tension')).toBe('force')
   })
 })

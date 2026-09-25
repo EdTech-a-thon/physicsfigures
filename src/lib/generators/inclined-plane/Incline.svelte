@@ -6,6 +6,7 @@
   import FigureLabel from '$lib/shared/FigureLabel.svelte'
   import ObjectShape from '$lib/shared/ObjectShape.svelte'
   import VectorArrow from '$lib/shared/VectorArrow.svelte'
+  import { styleOf } from '$lib/shared/vector'
   import { mirrorAnchor, mirrorTransform, mirrorX, palette } from '$lib/shared/figure'
   import { buildIncline } from './incline'
   import type { InclineSettings } from './settings'
@@ -49,7 +50,7 @@
     {#if fig.lengthMark}<DimensionLine m={fig.lengthMark} color={p.ink} />{/if}
     {#if fig.heightMark}<DimensionLine m={fig.heightMark} color={p.ink} />{/if}
 
-    {#each fig.vectors as v}<VectorArrow v={v.v} color={p.vector} />{/each}
+    {#each fig.vectors as v}<VectorArrow v={v.v} color={p.vector} style={styleOf(v.kind)} />{/each}
   </g>
 
   <FigureLabel label={settings.angleLabel} x={mx(fig.angleLabelAt.x)} y={fig.angleLabelAt.y + SIZE * 0.35} size={SIZE} color={p.ink} />

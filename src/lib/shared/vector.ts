@@ -24,6 +24,13 @@ export interface LabeledVector<K extends string = string> {
   labelAt: Point
 }
 
+/** How a vector is drawn: a force solid, motion dashed, a force's component thin and dashed. */
+export type VectorStyle = 'force' | 'motion' | 'component'
+
+const MOTION = new Set(['velocity', 'acceleration', 'motion'])
+/** The style for a vector of this kind: velocity and acceleration are motion, everything else a force. */
+export const styleOf = (kind: string): VectorStyle => (MOTION.has(kind) ? 'motion' : 'force')
+
 export const VECTOR_WIDTH = 3
 export const VECTOR_HEAD = 14
 

@@ -148,7 +148,7 @@
       {/each}
     {/if}
 
-    {#if fig.motion}<VectorArrow v={fig.motion} color={p.vector} />{/if}
+    {#if fig.motion}<VectorArrow v={fig.motion} color={p.vector} style="motion" />{/if}
   </g>
 
   {#if fig.battery}

@@ -5,6 +5,7 @@
   import FigureLabel from '$lib/shared/FigureLabel.svelte'
   import ObjectShape from '$lib/shared/ObjectShape.svelte'
   import VectorArrow from '$lib/shared/VectorArrow.svelte'
+  import { styleOf } from '$lib/shared/vector'
   import { mirrorTransform, mirrorX, palette } from '$lib/shared/figure'
   import { buildPulley, type Wheel } from './pulley'
   import type { PulleySettings } from './settings'
@@ -99,7 +100,7 @@
         <ObjectShape kind={o.kind} size={o.size} fill={p.object} stroke={p.ink} />
       </g>
     {/each}
-    {#each fig.vectors as v}<VectorArrow v={v.v} color={p.vector} />{/each}
+    {#each fig.vectors as v}<VectorArrow v={v.v} color={p.vector} style={styleOf(v.kind)} />{/each}
   </g>
 
   {#each fig.vectors as v}
