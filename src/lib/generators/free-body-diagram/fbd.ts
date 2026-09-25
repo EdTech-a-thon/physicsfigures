@@ -1,5 +1,6 @@
 // Where everything in a Free Body Diagram goes: the body alone, with every
-// force drawn from its middle and each force's label past its tip. The
+// force drawn from its middle and each force's label past its tip (moved to
+// a clear spot nearby if it would land on another; arrows never move). The
 // figure is cropped to what's drawn, at the same scale every time, so two
 // diagrams pasted side by side have arrows of the same size.
 //
@@ -108,6 +109,66 @@ export const labelBox = (at: Point, l: Label): Box => ({ x: at.x, y: at.y, w: la
 
 const boxCorners = (b: Box) => (b.w <= 6 ? [] : [pt(b.x - b.w / 2, b.y - b.h / 2), pt(b.x + b.w / 2, b.y + b.h / 2)])
 
+/** Do two label boxes overlap? Boxes of labels that are off never do. */
+export const overlaps = (a: Box, b: Box, pad = 0) =>
+  a.w > 6 && b.w > 6 && Math.abs(a.x - b.x) < (a.w + b.w) / 2 + pad && Math.abs(a.y - b.y) < (a.h + b.h) / 2 + pad
+
+/** Does a segment pass through a box (shrunk by `shrink` on every side)? */
+export function crosses(v: Segment, b: Box, shrink = 0) {
+  const w = b.w / 2 - shrink
+  const h = b.h / 2 - shrink
+  if (w <= 0 || h <= 0) return false
+  const steps = Math.max(1, Math.ceil(Math.hypot(v.x2 - v.x1, v.y2 - v.y1) / 3))
+  for (let i = 0; i <= steps; i++) {
+    const x = v.x1 + ((v.x2 - v.x1) * i) / steps
+    const y = v.y1 + ((v.y2 - v.y1) * i) / steps
+    if (Math.abs(x - b.x) < w && Math.abs(y - b.y) < h) return true
+  }
+  return false
+}
+
+/** A label to place: where it would go, the way it moves out (away from what it labels), and its text.
+ *  `alt` is a second place it could go, on the other side of what it labels. */
+export interface Placing {
+  at: Point
+  out: Point
+  label: Label
+  alt?: Point
+}
+
+/**
+ * Labels placed one at a time, each at the first spot near where it would go
+ * that's clear of the labels already placed, every arrow and line in
+ * `lines`, and the body: first farther out, then to either side. A label
+ * with no clear spot nearby stays where it would go.
+ */
+export function placeLabels(labels: Placing[], lines: Segment[], body: Box | null): Point[] {
+  const steps: { e: number; l: number; cost: number }[] = []
+  for (let e = 0; e <= 96; e += 8) for (const l of [0, 1, -1, 2, -2, 3, -3]) steps.push({ e, l, cost: e + 14 * Math.abs(l) })
+  const placed: Box[] = []
+  return labels.map((p) => {
+    const side = { x: -p.out.y, y: p.out.x }
+    const box = (at: Point) => labelBox(at, p.label)
+    const clear = (b: Box) =>
+      !placed.some((q) => overlaps(q, b, 2)) && !lines.some((v) => crosses(v, b)) && !(body && overlaps(body, b))
+    // Spots near where it would go and, a little less wanted, near its other place (moving out the other way).
+    const tries = [
+      ...steps.map(({ e, l, cost }) => ({ cost, at: pt(p.at.x + p.out.x * e + side.x * l * 12, p.at.y + p.out.y * e + side.y * l * 12) })),
+      ...(p.alt ? steps.map(({ e, l, cost }) => ({ cost: cost + 8, at: pt(p.alt!.x - p.out.x * e + side.x * l * 12, p.alt!.y - p.out.y * e + side.y * l * 12) })) : []),
+    ].sort((a, b) => a.cost - b.cost)
+    const best = labelWidth(p.label) > 0 ? (tries.find((t) => clear(box(t.at)))?.at ?? p.at) : p.at
+    placed.push(box(best))
+    return best
+  })
+}
+
+/** Forces pointing exactly the same way, so one arrow hides the other: groups of their indexes. */
+export function sameDirection(forces: { angle: number }[]): number[][] {
+  const groups = new Map<number, number[]>()
+  forces.forEach((f, i) => groups.set(f.angle, [...(groups.get(f.angle) ?? []), i]))
+  return [...groups.values()].filter((g) => g.length > 1)
+}
+
 /** How far from the body's middle its edge is, going in direction `d`. */
 function toEdge(kind: BodyKind, w: number, h: number, d: Point) {
   if (kind === 'dot') return DOT_R
@@ -176,7 +237,7 @@ function layout(s: FbdSettings): FbdFigure {
     const reach = toEdge(kind, w, h, d) + UNIT * f.length
     const v = seg(middle, pt(d.x * reach, d.y * reach))
     const lw = labelWidth(f.label)
-    const labelAt = labelPoint(v, { at: 'tip', gap: 12 + (lw / 2) * Math.abs(d.x) + 11 * Math.abs(d.y) })
+    const labelAt = labelPoint(v, { at: 'tip', gap: 12 + (lw / 2) * Math.abs(d.x) + 15 * Math.abs(d.y) })
     return { kind: 'force', index, angle, v, label: f.label, labelAt: pt(labelAt.x, labelAt.y) }
   })
 
@@ -235,6 +296,49 @@ function layout(s: FbdSettings): FbdFigure {
       })
     }
   }
+
+  // Labels that would land on another label or an arrow (forces pointing
+  // almost the same way, an angle mark beside a component) move to a clear
+  // spot nearby. No arrow moves.
+  const unit = (p: Point) => {
+    const n = Math.hypot(p.x, p.y) || 1
+    return { x: p.x / n, y: p.y / n }
+  }
+  const labels = [
+    ...forces.map((f) => ({ at: f.labelAt, out: direction(f.angle), label: f.label, put: (p: Point) => (f.labelAt = p) })),
+    ...marks.map((m) => ({ at: m.labelAt, out: unit(m.labelAt), label: m.label, put: (p: Point) => (m.labelAt = p) })),
+    ...components.flatMap((c) => [
+      {
+        at: c.xLabelAt,
+        alt: pt(c.xLabelAt.x, -c.xLabelAt.y),
+        out: { x: 0, y: Math.sign(c.xLabelAt.y) || 1 },
+        label: c.xLabel,
+        put: (p: Point) => (c.xLabelAt = p),
+      },
+      {
+        at: c.yLabelAt,
+        alt: pt(-c.yLabelAt.x, c.yLabelAt.y),
+        out: { x: Math.sign(c.yLabelAt.x) || 1, y: 0 },
+        label: c.yLabel,
+        put: (p: Point) => (c.yLabelAt = p),
+      },
+    ]),
+  ]
+  // An arc as short straight pieces, for keeping labels off it.
+  const arcPieces = (m: AngleMark) => {
+    const a0 = Math.atan2(-m.arc.from.y, m.arc.from.x)
+    let span = Math.atan2(-m.arc.to.y, m.arc.to.x) - a0
+    span = ((span + 3 * Math.PI) % (2 * Math.PI)) - Math.PI
+    const at = (t: number) => pt(Math.cos(a0 + span * t) * m.arc.r, -Math.sin(a0 + span * t) * m.arc.r)
+    return Array.from({ length: 8 }, (_, i) => seg(at(i / 8), at((i + 1) / 8)))
+  }
+  const lines = [
+    ...forces.map((f) => f.v),
+    ...components.flatMap((c) => [c.x, c.y]),
+    ...marks.flatMap((m) => [m.ref, ...arcPieces(m)]),
+  ]
+  const bodyBox = kind === 'dot' ? null : { x: 0, y: 0, w: w + 4, h: h + 4 }
+  placeLabels(labels, lines, bodyBox).forEach((p, i) => labels[i].put(p))
 
   const diagram = [
     pt(-w / 2, -h / 2),

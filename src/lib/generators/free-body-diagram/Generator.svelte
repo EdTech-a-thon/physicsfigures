@@ -8,6 +8,7 @@
   import LabelField from '$lib/shared/LabelField.svelte'
   import type { Label } from '$lib/shared/label'
   import Section from '$lib/shared/Section.svelte'
+  import { sameDirection } from './fbd'
   import FreeBody from './FreeBody.svelte'
   import { componentLabel, fbdSettings, MAX_FORCES, onAxis, STARTERS, starterForce, type Force } from './settings'
 
@@ -36,6 +37,8 @@
     [0, 'Right'],
   ] as const
   const full = $derived(s.forces.length >= MAX_FORCES)
+  const names = (g: number[]) => g.slice(0, -1).map((i) => i + 1).join(', ') + ` and ${g.at(-1)! + 1}`
+  const hidden = $derived(sameDirection(s.forces).map((g) => `Forces ${names(g)} point the same way, so one arrow hides the other.`))
   const add = (starter: (typeof STARTERS)[number]) => {
     if (!full) gen.settings.forces.push(starterForce(starter))
   }
@@ -119,6 +122,8 @@
         </div>
       {/each}
 
+      {#each hidden as warning}<p class="note warning" role="status">{warning}</p>{/each}
+
       <div class="field add">
         {full ? `A figure holds up to ${MAX_FORCES} forces.` : 'Add a force'}
         <div class="starters">
@@ -154,6 +159,7 @@
   .degrees { display: inline-flex; align-items: center; gap: 0.2rem; color: var(--muted); }
   .degrees input { width: 4.2rem; }
   .motion + .motion { border-top: 1px solid var(--border); padding-top: 0.75rem; margin-top: 0.25rem; }
+  .warning { color: var(--ink); background: #fffbeb; border-left: 3px solid var(--amber); border-radius: 6px; padding: 0.5rem 0.7rem; }
   .starters { display: flex; flex-wrap: wrap; gap: 0.4rem; }
   .starters button { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.35rem 0.65rem; font-size: 0.85rem; border-radius: 9px; }
 </style>

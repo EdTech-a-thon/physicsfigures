@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { searchGenerators } from '$lib/generators'
-import { buildFbd, DOT_R, UNIT } from './fbd'
+import { buildFbd, crosses, DOT_R, labelBox, overlaps, sameDirection, UNIT } from './fbd'
 import { componentLabel, fbdSettings, STARTERS, starterForce, type FbdSettings, type Force } from './settings'
 
 const make = (over: Partial<FbdSettings> = {}) => buildFbd({ ...fbdSettings.defaults, ...over })
@@ -211,6 +211,58 @@ describe('velocity and acceleration', () => {
 
   test('none unless asked for', () => {
     expect(make().motion).toEqual([])
+  })
+})
+
+describe('crowded forces', () => {
+  const boxes = (f: ReturnType<typeof make>) => [
+    ...f.forces.map((v) => labelBox(v.labelAt, v.label)),
+    ...f.marks.map((m) => labelBox(m.labelAt, m.label)),
+    ...f.components.flatMap((c) => [labelBox(c.xLabelAt, c.xLabel), labelBox(c.yLabelAt, c.yLabel)]),
+  ]
+  const noOverlaps = (f: ReturnType<typeof make>) => {
+    const b = boxes(f)
+    for (let i = 0; i < b.length; i++) for (let j = i + 1; j < b.length; j++) expect(overlaps(b[i], b[j])).toBe(false)
+    // and no force's label sits on any force's arrow
+    for (const v of f.forces) for (const l of f.forces) expect(crosses(v.v, labelBox(l.labelAt, l.label))).toBe(false)
+  }
+
+  test('labels of forces pointing almost the same way move apart, clear of the arrows', () => {
+    noOverlaps(make({ forces: [force(85, 1, 'T_1'), force(95, 1, 'T_2')] }))
+    noOverlaps(make({ forces: [80, 84, 88, 92, 96, 100].map((a, i) => force(a, 1, `F_${i + 1}`)) }))
+    noOverlaps(make({ forces: [force(270, 1, 'F_g'), force(270, 1, 'F_{book}')] }))
+  })
+
+  test('and so are angle marks and components beside other forces', () => {
+    noOverlaps(make({ forces: [force(30, 1.2, 'T', { arc: true, parts: true }), force(160, 0.8, 'F_A', { arc: true, from: 'v' })] }))
+  })
+
+  test('arrows stay where they are', () => {
+    const alone = make({ forces: [force(85, 1, 'T_1')] })
+    const crowded = make({ forces: [force(85, 1, 'T_1'), force(95, 1, 'T_2')] })
+    const [a] = alone.forces
+    const [b] = crowded.forces
+    expect(b.v.x2 - b.v.x1).toBeCloseTo(a.v.x2 - a.v.x1)
+    expect(b.v.y2 - b.v.y1).toBeCloseTo(a.v.y2 - a.v.y1)
+  })
+
+  test('a label with room stays past its tip', () => {
+    const [v] = make({ forces: [force(0, 1, 'T'), force(180, 1, 'F')] }).forces
+    expect(v.labelAt.y).toBeCloseTo(v.v.y2)
+    expect(v.labelAt.x - v.v.x2).toBeLessThan(30)
+  })
+
+  test('crowded labels stay near their own arrow', () => {
+    const f = make({ forces: [80, 84, 88, 92, 96, 100].map((a, i) => force(a, 1, `F_${i + 1}`)) })
+    for (const v of f.forces) expect(Math.hypot(v.labelAt.x - v.v.x2, v.labelAt.y - v.v.y2)).toBeLessThan(130)
+  })
+
+  test('the note finds forces pointing exactly the same way', () => {
+    expect(sameDirection([force(270), force(90), force(270), force(0), force(90), force(270)])).toEqual([
+      [0, 2, 5],
+      [1, 4],
+    ])
+    expect(sameDirection([force(89), force(90)])).toEqual([])
   })
 })
 
