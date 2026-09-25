@@ -100,7 +100,7 @@
         <ObjectShape kind={o.kind} size={o.size} fill={p.object} stroke={p.ink} />
       </g>
     {/each}
-    {#each fig.vectors as v}<VectorArrow v={v.v} color={p.vector} style={styleOf(v.kind)} />{/each}
+    {#each fig.vectors as v}<VectorArrow v={v.v} color={p.vector} style={styleOf(v.kind)} halo={false} />{/each}
   </g>
 
   {#each fig.vectors as v}

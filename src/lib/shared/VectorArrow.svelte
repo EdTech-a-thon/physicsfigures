@@ -30,7 +30,8 @@
   <polygon {points} fill="#fff" stroke="#fff" stroke-width="5" stroke-linejoin="round" />
 {/if}
 
-<!-- A dashed shaft is drawn from the head back, so a dash always meets the head. -->
+<!-- A dashed shaft is drawn from the head back, so a dash always meets the head.
+     Its ends are square, so a force drawn from an object's edge doesn't poke inside. -->
 <line
   x1={a.shaft.x2}
   y1={a.shaft.y2}
@@ -39,6 +40,6 @@
   stroke={color}
   stroke-width={width}
   stroke-dasharray={dash}
-  stroke-linecap={dash ? 'butt' : undefined}
+  stroke-linecap="butt"
 />
 <polygon {points} fill={color} />

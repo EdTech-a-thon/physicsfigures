@@ -50,7 +50,7 @@
     {#if fig.lengthMark}<DimensionLine m={fig.lengthMark} color={p.ink} />{/if}
     {#if fig.heightMark}<DimensionLine m={fig.heightMark} color={p.ink} />{/if}
 
-    {#each fig.vectors as v}<VectorArrow v={v.v} color={p.vector} style={styleOf(v.kind)} />{/each}
+    {#each fig.vectors as v}<VectorArrow v={v.v} color={p.vector} style={styleOf(v.kind)} halo={false} />{/each}
   </g>
 
   <FigureLabel label={settings.angleLabel} x={mx(fig.angleLabelAt.x)} y={fig.angleLabelAt.y + SIZE * 0.35} size={SIZE} color={p.ink} />

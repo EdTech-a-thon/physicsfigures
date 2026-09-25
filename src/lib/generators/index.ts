@@ -1,13 +1,15 @@
 // Every generator on the site. The directory and its search, page titles
 // and the sitemap all read this list, so adding a generator means adding its
 // folder and one entry here.
+//
+// The Coil and Magnet (coil-and-magnet/) and Circuit Diagram (circuit-diagram/)
+// generators are switched off for now: they have no entry here and no page.
+// Restore both to bring one back.
 
 import type { Component } from 'svelte'
-import CoilMagnetPreview from './coil-and-magnet/Preview.svelte'
 import FreeBodyPreview from './free-body-diagram/Preview.svelte'
 import InclinedPlanePreview from './inclined-plane/Preview.svelte'
 import PulleyPreview from './pulley/Preview.svelte'
-import CircuitDiagramPreview from './circuit-diagram/Preview.svelte'
 
 export interface Generator {
   id: string
@@ -26,20 +28,6 @@ export interface Generator {
 }
 
 export const GENERATORS: Generator[] = [
-  {
-    id: 'coil-and-magnet',
-    name: 'Coil and Magnet Generator',
-    path: '/coil-and-magnet',
-    blurb: 'A coil of wire with a bar magnet moving toward or away from it.',
-    description:
-      'Make a printable electromagnetic induction figure for your class: a coil with any number of turns and a bar magnet moving toward or away from it, with its poles labeled, then copy it into a worksheet or test.',
-    keywords: [
-      'induction', 'electromagnetic induction', 'faraday', "faraday's law", 'lenz', "lenz's law", 'solenoid', 'coil',
-      'loop', 'wire', 'magnet', 'bar magnet', 'north', 'south', 'pole', 'magnetic', 'magnetism', 'emf', 'flux',
-      'electromagnet', 'galvanometer', 'current', 'printable',
-    ],
-    Preview: CoilMagnetPreview,
-  },
   {
     id: 'free-body-diagram',
     name: 'Free Body Diagram Generator',
@@ -81,20 +69,6 @@ export const GENERATORS: Generator[] = [
       "newton's laws", 'mechanics', 'printable',
     ],
     Preview: PulleyPreview,
-  },
-  {
-    id: 'circuit-diagram',
-    name: 'Circuit Diagram Generator',
-    path: '/circuit-diagram',
-    blurb: 'A circuit schematic with parts in series and parallel.',
-    description:
-      'Make a printable circuit diagram for your class: batteries, resistors, bulbs, switches and meters in series and parallel, with their names and values labeled or left blank, then copy it into a worksheet or test.',
-    keywords: [
-      'circuit', 'circuits', 'schematic', 'electric', 'electricity', 'series', 'parallel', 'resistor', 'resistance',
-      'ohm', "ohm's law", 'kirchhoff', "kirchhoff's laws", 'battery', 'cell', 'emf', 'bulb', 'lamp', 'switch', 'ammeter',
-      'voltmeter', 'current', 'voltage', 'potential difference', 'equivalent resistance', 'printable',
-    ],
-    Preview: CircuitDiagramPreview,
   },
 ]
 
