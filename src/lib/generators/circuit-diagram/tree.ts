@@ -380,8 +380,9 @@ function describeItem(item: Item): string {
     const words = item.kind === 'switch' ? `${item.open ? 'an open' : 'a closed'} switch` : PART_WORDS[item.kind]
     return item.voltmeter ? `${words} with a voltmeter across it` : words
   }
-  if (item.type === 'series') return item.items.map(describeItem).join(' then ')
-  return `${item.items.length} branches in parallel (${item.items.map(describeItem).join('; ')})`
+  const words =
+    item.type === 'series' ? item.items.map(describeItem).join(' then ') : `${item.items.length} branches in parallel (${item.items.map(describeItem).join('; ')})`
+  return item.voltmeter ? `${words}, with a voltmeter across them` : words
 }
 
 export const describeCircuit = (circuit: Circuit) => `A circuit diagram: ${circuit.items.map(describeItem).join(', then ')}, and back to the start`

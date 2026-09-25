@@ -44,6 +44,8 @@ export interface CircuitFigure {
   /** Junction dots, where three wires meet. */
   dots: Pt[]
   parts: PlacedPart[]
+  /** Voltmeters' circles (their letters are in letters). */
+  meters: Pt[]
   labels: PlacedLabel[]
   /** Upright text centered on a point, like the letter in a meter. */
   letters: Letter[]
@@ -115,6 +117,8 @@ type Prim =
   | { t: 'wire'; pts: Pt[] }
   | { t: 'dot'; at: Pt }
   | { t: 'part'; part: Part; at: Pt }
+  /** A voltmeter's circle. */
+  | { t: 'meter'; at: Pt }
   /** A label beside `at`, on the up (−1) or down (+1) side. */
   | { t: 'label'; label: Label; at: Pt; side: -1 | 1 }
   /** Upright text centered on `at`: a meter's letter, or a battery's + or − (drawn only when polarity marks are on). */
@@ -202,8 +206,41 @@ function parallelBlock(branches: Item[], vertical: boolean): Block {
 }
 
 function itemBlock(item: Item, vertical: boolean): Block {
-  if (item.type === 'part') return partBlock(item, vertical)
-  return item.type === 'series' ? seriesBlock(item.items, vertical) : parallelBlock(item.items, vertical)
+  const block = item.type === 'part' ? partBlock(item, vertical) : item.type === 'series' ? seriesBlock(item.items, vertical) : parallelBlock(item.items, vertical)
+  return item.voltmeter ? voltmeterBlock(block, item.voltmeter, vertical) : block
+}
+
+export const METER_R = 15
+/** The wire before and after a measured block, where the voltmeter's leads tap it. */
+const TAP = 18
+const BRIDGE_GAP = 10
+
+/**
+ * A voltmeter across a block: its leads tap the wire just before and after
+ * the block and rise on the outer (up) side, clear of the block and its
+ * labels, to the meter in the middle of a bridge.
+ */
+function voltmeterBlock(inner: Block, label: Label, vertical: boolean): Block {
+  const shown = shows(label) ? label : null
+  const len = Math.max(inner.len + 2 * TAP, 2 * METER_R + 2 * TAP + 12, shown ? labelAlong(shown, vertical) + 16 : 0)
+  const start = (len - inner.len) / 2
+  const a = TAP / 2
+  const b = len - TAP / 2
+  const mid = len / 2
+  const h = inner.up + BRIDGE_GAP + METER_R
+  const prims: Prim[] = [
+    ...shift(inner.prims, start, 0),
+    { t: 'wire', pts: [{ x: 0, y: 0 }, { x: start, y: 0 }] },
+    { t: 'wire', pts: [{ x: start + inner.len, y: 0 }, { x: len, y: 0 }] },
+    { t: 'wire', pts: [{ x: a, y: 0 }, { x: a, y: -h }, { x: mid - METER_R, y: -h }] },
+    { t: 'wire', pts: [{ x: mid + METER_R, y: -h }, { x: b, y: -h }, { x: b, y: 0 }] },
+    { t: 'dot', at: { x: a, y: 0 } },
+    { t: 'dot', at: { x: b, y: 0 } },
+    { t: 'meter', at: { x: mid, y: -h } },
+    { t: 'letter', text: 'V', at: { x: mid, y: -h }, size: 18, polarity: false },
+  ]
+  if (shown) prims.push({ t: 'label', label: shown, at: { x: mid, y: -h - METER_R }, side: -1 })
+  return { len, up: h + METER_R + (shown ? LABEL_GAP + labelReach(shown, vertical) : 0), down: inner.down, prims }
 }
 
 // Placing blocks on the figure.
@@ -224,6 +261,7 @@ interface Drawing {
   wires: Pt[][]
   dots: Pt[]
   parts: PlacedPart[]
+  meters: Pt[]
   labels: PlacedLabel[]
   letters: (Letter & { polarity: boolean })[]
 }
@@ -243,6 +281,7 @@ function draw(out: Drawing, block: Block, frame: Frame) {
     else if (p.t === 'dot') out.dots.push(s(p.at))
     else if (p.t === 'part') out.parts.push({ part: p.part, ...s(p.at), angle: frame.angle })
     else if (p.t === 'letter') out.letters.push({ text: p.text, ...s(p.at), size: p.size, polarity: p.polarity })
+    else if (p.t === 'meter') out.meters.push(s(p.at))
     else out.labels.push(placeLabel(p.label, s(p.at), turn({ x: 0, y: p.side })))
   }
 }
@@ -272,7 +311,7 @@ function sides(items: Item[]): { left: Item[]; top: Item[]; right: Item[]; botto
 }
 
 function loopDrawing(circuit: Circuit): Drawing {
-  const out: Drawing = { wires: [], dots: [], parts: [], labels: [], letters: [] }
+  const out: Drawing = { wires: [], dots: [], parts: [], labels: [], letters: [], meters: [] }
   const s = sides(batteryFirst(circuit.items))
   const left = seriesBlock(s.left, true)
   const top = seriesBlock(s.top, false)
@@ -332,7 +371,7 @@ export function ladderOf(circuit: Circuit): { rest: Item[]; group: Item & { type
 }
 
 function ladderDrawing(rest: Item[], group: Item & { type: 'parallel' }): Drawing {
-  const out: Drawing = { wires: [], dots: [], parts: [], labels: [], letters: [] }
+  const out: Drawing = { wires: [], dots: [], parts: [], labels: [], letters: [], meters: [] }
   const source = seriesBlock(rest, true)
   const rungs = group.items.map((b) => itemBlock(b, true))
   const H = Math.max(...[source, ...rungs].map((b) => b.len)) + 2 * RAIL_LEAD
@@ -374,6 +413,8 @@ export function labelBox(l: PlacedLabel): Box {
   return { left, right: left + w, top: l.y - ASCENT, bottom: l.y + DESCENT + LABEL_SIZE * 0.15 }
 }
 
+export const meterBox = (m: Pt): Box => ({ left: m.x - METER_R, right: m.x + METER_R, top: m.y - METER_R, bottom: m.y + METER_R })
+
 /** The box round a placed part's symbol. */
 export function partBox(p: PlacedPart): Box {
   const size = symbolSize(p.part)
@@ -392,6 +433,7 @@ export function buildCircuit(circuit: Circuit, options: LayoutOptions): CircuitF
   const boxes: Box[] = [
     ...d.wires.flat().map((p) => ({ left: p.x, right: p.x, top: p.y, bottom: p.y })),
     ...d.parts.map(partBox),
+    ...d.meters.map(meterBox),
     ...d.labels.map(labelBox),
   ]
   const bounds = {
@@ -413,6 +455,7 @@ export function buildCircuit(circuit: Circuit, options: LayoutOptions): CircuitF
     wires: joinWires(d.wires.map((w) => w.map(move))),
     dots: d.dots.map(move),
     parts: d.parts.map((p) => ({ ...p, ...move(p) })),
+    meters: d.meters.map(move),
     labels: d.labels.map((l) => ({ ...l, ...move(l) })),
     letters: d.letters.filter((l) => options.polarity || !l.polarity).map(({ polarity: _, ...l }) => ({ ...l, ...move(l) })),
     title: options.title ? { x: width / 2, y: MARGIN + TITLE_SIZE * 0.8 } : null,

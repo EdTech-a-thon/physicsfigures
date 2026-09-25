@@ -29,9 +29,9 @@
   import { ArrowDown, ArrowUp, Plus, Trash2 } from '@lucide/svelte'
   import Choice from '$lib/shared/Choice.svelte'
   import LabelField from '$lib/shared/LabelField.svelte'
-  import { addPart, canMove, cantAdd, cantRemove, moveItem, removeItem, setKind, type Path } from './edit'
+  import { addPart, canMove, cantAdd, cantRemove, edit, itemAt, moveItem, removeItem, setKind, type Path } from './edit'
   import Self from './OutlineItem.svelte'
-  import { PART_KINDS, type Circuit, type Item } from './tree'
+  import { DEFAULT_VOLTMETER, PART_KINDS, type Circuit, type Item } from './tree'
 
   interface Props {
     circuit: Circuit
@@ -62,11 +62,29 @@
     const done = moveItem(snap(), path, by)
     onedit(done.circuit, done.path)
   }
+  const setVoltmeter = (on: boolean) =>
+    onedit(
+      edit(snap(), (c) => (itemAt(c, path).voltmeter = on ? { ...DEFAULT_VOLTMETER } : null)),
+      path,
+    )
 
   const groupSummary = $derived(
     item.type === 'part' ? '' : item.type === 'parallel' ? `In parallel · ${item.items.length} branches` : `In series · ${item.items.length} parts`,
   )
   const partSummary = $derived(item.type === 'part' ? [plainLabel(item.name), plainLabel(item.value)].filter(Boolean).join(' · ') : '')</script>
+
+{#snippet voltmeter()}
+  <label class="check">
+    <input type="checkbox" checked={!!item.voltmeter} onchange={(e) => setVoltmeter(e.currentTarget.checked)} />
+    Voltmeter across {item.type === 'part' ? 'it' : 'the group'}
+  </label>
+  {#if item.voltmeter}
+    <div class="field">
+      Voltmeter label
+      <LabelField name="Voltmeter label" bind:label={() => item.voltmeter!, (v) => (item.voltmeter = v)} />
+    </div>
+  {/if}
+{/snippet}
 
 {#snippet actions()}
   <div class="actions">
@@ -118,6 +136,7 @@
         {/if}
         <div class="field">Name <LabelField name="Name" bind:label={part.name} /></div>
         <div class="field">Value <LabelField name="Value" placeholder={part.kind === 'resistor' ? '4 ohm' : ''} bind:label={part.value} /></div>
+        {@render voltmeter()}
         {@render actions()}
       </div>
     </details>
@@ -126,7 +145,10 @@
     <div class="group {group.type}">
       <details class="row head" open={openKey === key} ontoggle={toggle}>
         <summary><span class="kind">{groupSummary}</span></summary>
-        <div class="body">{@render actions()}</div>
+        <div class="body">
+          {@render voltmeter()}
+          {@render actions()}
+        </div>
       </details>
       <ol class="children">
         {#each group.items as child, i (i)}

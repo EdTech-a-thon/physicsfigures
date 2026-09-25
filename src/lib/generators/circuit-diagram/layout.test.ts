@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { buildCircuit, labelBox, ladderOf, partBox, type Box, type CircuitFigure, type Pt } from './layout'
+import { buildCircuit, labelBox, ladderOf, meterBox, partBox, type Box, type CircuitFigure, type Pt } from './layout'
 import { cleanCircuit, DEFAULT_CIRCUIT, encodeCircuit, MAX_DEPTH, MAX_PARTS, newGroup, newPart, type Circuit, type Item, type PartKind } from './tree'
 
 const p = (kind: PartKind = 'resistor', over: Partial<ReturnType<typeof newPart>> = {}) => ({ ...newPart(kind), ...over })
@@ -23,12 +23,19 @@ function randomCircuit(rand: () => number): Circuit {
   const part = (): Item => {
     budget--
     const kind = kinds[Math.floor(rand() * kinds.length)]
-    return p(kind, { value: rand() < 0.4 ? { mode: rand() < 0.5 ? 'text' : 'blank', text: '12.5 Omega' } : newPart(kind).value, open: rand() < 0.5, cells: rand() < 0.5 ? 2 : 1 })
+    return p(kind, {
+      value: rand() < 0.4 ? { mode: rand() < 0.5 ? 'text' : 'blank', text: '12.5 Omega' } : newPart(kind).value,
+      open: rand() < 0.5,
+      cells: rand() < 0.5 ? 2 : 1,
+      voltmeter: voltmeter(),
+    })
   }
+  const voltmeter = () => (rand() < 0.15 ? { mode: rand() < 0.5 ? ('text' as const) : ('none' as const), text: 'V_2' } : null)
   const item = (depth: number, inParallel: boolean): Item => {
     if (budget < 2 || depth > MAX_DEPTH || rand() < 0.55) return part()
     const n = 2 + Math.floor(rand() * 2)
-    return newGroup(inParallel ? 'series' : 'parallel', Array.from({ length: n }, () => (budget > 0 ? item(depth + 1, !inParallel) : part())))
+    const group = newGroup(inParallel ? 'series' : 'parallel', Array.from({ length: n }, () => (budget > 0 ? item(depth + 1, !inParallel) : part())))
+    return { ...group, voltmeter: voltmeter() }
   }
   const items: Item[] = [p('battery')]
   while (budget > 0 && items.length < 5) items.push(item(1, false))
@@ -59,7 +66,7 @@ function cross([a, b]: readonly [Pt, Pt], [c, d]: readonly [Pt, Pt]): boolean {
 /** Everything a figure must get right, whatever the circuit. */
 function checkFigure(fig: CircuitFigure) {
   const frame = { left: 0, right: fig.width, top: 0, bottom: fig.height }
-  const parts = fig.parts.map(partBox)
+  const parts = [...fig.parts.map(partBox), ...fig.meters.map(meterBox)]
   // Letters inside meters sit in their part's box; polarity marks must stay clear of everything.
   const marks = fig.letters.filter((l) => l.text === '+' || l.text === '−').map((l) => ({ left: l.x - 5, right: l.x + 5, top: l.y - 6, bottom: l.y + 6 }))
   const labels = [...fig.labels.map(labelBox), ...marks]
@@ -71,6 +78,43 @@ function checkFigure(fig: CircuitFigure) {
   for (const w of wires) for (const b of things) expect(cuts(w, b), 'a wire runs through a part or label').toBe(false)
   for (let i = 0; i < wires.length; i++) for (let j = i + 1; j < wires.length; j++) expect(cross(wires[i], wires[j]), 'wires cross').toBe(false)
 }
+
+describe('meters', () => {
+  const V = { mode: 'text' as const, text: 'V_1' }
+
+  test("a voltmeter's leads tap the wire either side of the part, and its meter clears the part's labels", () => {
+    const fig = buildCircuit(loop(p('battery'), p('resistor', { voltmeter: V, value: shown }), p()), { title: false, polarity: false })
+    checkFigure(fig)
+    const r1 = fig.parts[1]
+    const box = partBox(r1)
+    const [meter] = fig.meters
+    expect(meter.x).toBeCloseTo(r1.x)
+    // Both taps are junction dots on R₁'s own wire, one before it and one after.
+    const taps = fig.dots.filter((d) => d.y === r1.y)
+    expect(taps).toHaveLength(2)
+    expect(Math.min(...taps.map((t) => t.x))).toBeLessThan(box.left)
+    expect(Math.max(...taps.map((t) => t.x))).toBeGreaterThan(box.right)
+    // The meter is above R₁'s name, on the outside of the loop.
+    const name = fig.labels.find((l) => l.label.text === 'R_1')!
+    expect(meterBox(meter).bottom).toBeLessThan(labelBox(name).top)
+    expect(fig.letters.map((l) => l.text)).toContain('V')
+  })
+
+  test('a voltmeter can go across a group, or a part on a vertical side', () => {
+    const across = loop(p('battery', { voltmeter: V }), p(), { ...parallel(p(), p()), voltmeter: V })
+    const fig = buildCircuit(across, { title: false, polarity: false })
+    checkFigure(fig)
+    expect(fig.meters).toHaveLength(2)
+    // The battery's voltmeter is out to its left.
+    expect(fig.meters[0].x).toBeLessThan(fig.parts[0].x)
+  })
+
+  test('an ammeter is a part with an upright A in it', () => {
+    const fig = buildCircuit(loop(p('battery'), p('ammeter')), { title: false, polarity: false })
+    const ammeter = fig.parts[1]
+    expect(fig.letters).toEqual([expect.objectContaining({ text: 'A', x: ammeter.x, y: ammeter.y })])
+  })
+})
 
 describe('the ladder layout', () => {
   test('a battery driving one parallel group is a ladder, with the battery on the left rung', () => {

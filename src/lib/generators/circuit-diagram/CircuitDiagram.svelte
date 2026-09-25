@@ -4,7 +4,7 @@
   // transform; labels and letters outside it, so they stay readable.
   import FigureLabel from '$lib/shared/FigureLabel.svelte'
   import { mirrorAnchor, mirrorTransform, mirrorX, palette, SERIF } from '$lib/shared/figure'
-  import { buildCircuit, LABEL_SIZE } from './layout'
+  import { buildCircuit, LABEL_SIZE, METER_R } from './layout'
   import PartSymbol from './PartSymbol.svelte'
   import type { CircuitSettings } from './settings'
   import { describeCircuit } from './tree'
@@ -38,6 +38,7 @@
         <PartSymbol part={part.part} style={settings.symbols} ink={partInk} />
       </g>
     {/each}
+    {#each fig.meters as m}<circle cx={m.x} cy={m.y} r={METER_R} fill="#fff" stroke={partInk} stroke-width="2.2" />{/each}
     {#each fig.dots as dot}<circle cx={dot.x} cy={dot.y} r="3.8" fill={p.ink} />{/each}
   </g>
 
