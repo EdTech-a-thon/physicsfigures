@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { buildCircuit, labelBox, partBox, type Box, type CircuitFigure, type Pt } from './layout'
+import { buildCircuit, labelBox, ladderOf, partBox, type Box, type CircuitFigure, type Pt } from './layout'
 import { cleanCircuit, DEFAULT_CIRCUIT, encodeCircuit, MAX_DEPTH, MAX_PARTS, newGroup, newPart, type Circuit, type Item, type PartKind } from './tree'
 
 const p = (kind: PartKind = 'resistor', over: Partial<ReturnType<typeof newPart>> = {}) => ({ ...newPart(kind), ...over })
@@ -71,6 +71,40 @@ function checkFigure(fig: CircuitFigure) {
   for (const w of wires) for (const b of things) expect(cuts(w, b), 'a wire runs through a part or label').toBe(false)
   for (let i = 0; i < wires.length; i++) for (let j = i + 1; j < wires.length; j++) expect(cross(wires[i], wires[j]), 'wires cross').toBe(false)
 }
+
+describe('the ladder layout', () => {
+  test('a battery driving one parallel group is a ladder, with the battery on the left rung', () => {
+    const c = loop(p('battery'), parallel(p('resistor', { value: shown }), p('resistor', { value: shown }), p('bulb', { value: shown })))
+    expect(ladderOf(c)).not.toBeNull()
+    const fig = buildCircuit(c, { title: false, polarity: true })
+    checkFigure(fig)
+    const [battery, ...rungs] = fig.parts
+    expect(battery.angle).toBe(270)
+    for (const r of rungs) expect(r.angle).toBe(90)
+    // Rungs run left to right in outline order, each to the right of the one before.
+    const xs = [battery.x, ...rungs.map((r) => r.x)]
+    expect([...xs].sort((a, b) => a - b)).toEqual(xs)
+    // The middle rungs meet each rail at a T.
+    expect(fig.dots).toHaveLength(4)
+  })
+
+  test('a switch or ammeter can share the left rung, and the loop can start anywhere', () => {
+    expect(ladderOf(loop(p('battery'), p('switch'), parallel(p(), p())))).not.toBeNull()
+    expect(ladderOf(loop(parallel(p(), p()), p('ammeter'), p('battery')))?.rest.map((i) => (i.type === 'part' ? i.kind : ''))).toEqual(['ammeter', 'battery'])
+  })
+
+  test('anything else in the loop, or a second group, means the loop layout', () => {
+    expect(ladderOf(DEFAULT_CIRCUIT)).toBeNull()
+    expect(ladderOf(loop(p('battery'), parallel(p(), p()), parallel(p(), p())))).toBeNull()
+    expect(ladderOf(loop(p('switch'), parallel(p(), p())))).toBeNull()
+  })
+
+  test('rungs with nested groups and wide labels stay clear of each other', () => {
+    const wide = { mode: 'text' as const, text: 'R_{bulb} = 120 Omega' }
+    const c = loop(p('battery'), parallel(p('resistor', { value: wide }), series(p(), parallel(p('resistor', { value: shown }), p())), p('bulb', { value: wide })))
+    checkFigure(buildCircuit(c, { title: false, polarity: false }))
+  })
+})
 
 describe('the loop layout', () => {
   test('the default circuit: a battery on the left, the rest along the top', () => {

@@ -309,6 +309,56 @@ function loopDrawing(circuit: Circuit): Drawing {
   return out
 }
 
+// A battery driving one parallel group is drawn as a ladder: the rest of the
+// loop is the left rung, travelling up, and each branch is a rung to its
+// right, travelling down between a top rail and a bottom rail.
+
+const RUNG_GAP = 26
+const MIN_RUNG_GAP = 72
+const RAIL_LEAD = 26
+/** Parts that can share the left rung with the battery, as the source side of the circuit. */
+const SOURCE_KINDS = new Set<PartKind>(['battery', 'switch', 'ammeter'])
+const MAX_SOURCE_PARTS = 3
+
+/** The loop split into the source side and the parallel group, when it's drawn as a ladder. */
+export function ladderOf(circuit: Circuit): { rest: Item[]; group: Item & { type: 'parallel' } } | null {
+  const at = circuit.items.findIndex((i) => i.type === 'parallel')
+  const group = circuit.items[at]
+  if (!group || group.type !== 'parallel') return null
+  // Everything after the group, round to everything before it.
+  const rest = [...circuit.items.slice(at + 1), ...circuit.items.slice(0, at)]
+  const ok = rest.length > 0 && rest.length <= MAX_SOURCE_PARTS && rest.every((i) => i.type === 'part' && SOURCE_KINDS.has(i.kind))
+  return ok && rest.some((i) => i.type === 'part' && i.kind === 'battery') ? { rest, group } : null
+}
+
+function ladderDrawing(rest: Item[], group: Item & { type: 'parallel' }): Drawing {
+  const out: Drawing = { wires: [], dots: [], parts: [], labels: [], letters: [] }
+  const source = seriesBlock(rest, true)
+  const rungs = group.items.map((b) => itemBlock(b, true))
+  const H = Math.max(...[source, ...rungs].map((b) => b.len)) + 2 * RAIL_LEAD
+  // Going up, a block's up side is on the left; going down, on the right.
+  const xs = [0]
+  let right = source.down
+  for (const b of rungs) {
+    const x = xs.at(-1)! + Math.max(MIN_RUNG_GAP, right + RUNG_GAP + b.down)
+    xs.push(x)
+    right = b.up
+  }
+  const sourceFrame: Frame = { origin: { x: 0, y: (H + source.len) / 2 }, angle: 270 }
+  draw(out, source, sourceFrame)
+  out.wires.push([{ x: 0, y: H }, sourceFrame.origin], [toScreen(sourceFrame, { x: source.len, y: 0 }), { x: 0, y: 0 }])
+  rungs.forEach((b, i) => {
+    const x = xs[i + 1]
+    const frame: Frame = { origin: { x, y: (H - b.len) / 2 }, angle: 90 }
+    draw(out, b, frame)
+    out.wires.push([{ x, y: 0 }, frame.origin], [toScreen(frame, { x: b.len, y: 0 }), { x, y: H }])
+    if (i < rungs.length - 1) out.dots.push({ x, y: 0 }, { x, y: H })
+  })
+  const end = xs.at(-1)!
+  out.wires.push([{ x: 0, y: 0 }, { x: end, y: 0 }], [{ x: 0, y: H }, { x: end, y: H }])
+  return out
+}
+
 // The whole figure.
 
 export interface Box {
@@ -335,7 +385,8 @@ export function partBox(p: PlacedPart): Box {
 }
 
 export function buildCircuit(circuit: Circuit, options: LayoutOptions): CircuitFigure {
-  const d = loopDrawing(circuit)
+  const ladder = ladderOf(circuit)
+  const d = ladder ? ladderDrawing(ladder.rest, ladder.group) : loopDrawing(circuit)
 
   // Fit the figure round everything drawn.
   const boxes: Box[] = [
