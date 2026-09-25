@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { bool, choice, defineSettings, int, label, number } from './settings'
+import { bool, choice, defineSettings, int, label, list, number } from './settings'
 
 const def = defineSettings({
   turns: int(8, 1, 20),
@@ -46,5 +46,64 @@ describe('defineSettings', () => {
   test('same', () => {
     expect(def.same(def.defaults, { ...def.defaults })).toBe(true)
     expect(def.same(def.defaults, { ...def.defaults, turns: 2 })).toBe(false)
+  })
+})
+
+describe('list', () => {
+  const F_G = { mode: 'text', text: 'F_g' } as const
+  const rows = defineSettings({
+    forces: list(
+      { angle: int(0, 0, 359), length: number(1, 0.25, 2), label: label({ mode: 'text', text: 'F' }), marked: bool(false) },
+      [{ angle: 270, length: 1, label: F_G, marked: false }],
+      3,
+    ),
+  })
+  type Row = (typeof rows.defaults.forces)[number]
+  const row = (over: Partial<Row> = {}): Row => ({ angle: 270, length: 1, label: F_G, marked: false, ...over })
+
+  test('defaults are a copy', () => {
+    rows.defaults.forces[0].angle = 5
+    expect(rows.clean(undefined).forces[0].angle).toBe(270)
+    rows.defaults.forces[0].angle = 270
+  })
+
+  test('clean fixes each row, drops junk and caps the list', () => {
+    const cleaned = rows.clean({ forces: [{ angle: 400, length: 'x' }, 'junk', null, row(), row(), row()] }).forces
+    expect(cleaned).toHaveLength(3)
+    expect(cleaned[0]).toEqual({ angle: 359, length: 1, label: { mode: 'text', text: 'F' }, marked: false })
+    expect(rows.clean({ forces: 'nope' }).forces).toEqual(rows.defaults.forces)
+  })
+
+  test('rows leave off trailing defaults in the address', () => {
+    const s = { forces: [row({ label: { mode: 'text', text: 'F' } }), row({ angle: 90, length: 0.6, label: { mode: 'text', text: 'F_N' } })] }
+    const query = rows.toQuery(s)
+    expect(decodeURIComponent(query)).toBe('forces=270;90,0.6,F_N')
+    expect(rows.fromParams(new URLSearchParams(query))).toEqual(s)
+  })
+
+  test('awkward labels round-trip', () => {
+    const s = {
+      forces: [
+        row({ label: { mode: 'text', text: 'a, b; c\\d' }, marked: true }),
+        row({ label: { mode: 'blank', text: 'F' } }),
+        row({ label: { mode: 'none', text: 'F' }, marked: true }),
+      ],
+    }
+    expect(rows.fromParams(new URLSearchParams(rows.toQuery(s)))).toEqual(s)
+  })
+
+  test('an empty list is not the default list', () => {
+    const query = rows.toQuery({ forces: [] })
+    expect(query).toBe('forces=')
+    expect(rows.fromParams(new URLSearchParams(query)).forces).toEqual([])
+    expect(rows.toQuery(rows.defaults)).toBe('')
+  })
+
+  test('a bad link falls back field by field', () => {
+    const F = { mode: 'text', text: 'F' }
+    expect(rows.fromParams(new URLSearchParams('forces=abc,zz;45')).forces).toEqual([
+      { angle: 0, length: 1, label: F, marked: false },
+      { angle: 45, length: 1, label: F, marked: false },
+    ])
   })
 })

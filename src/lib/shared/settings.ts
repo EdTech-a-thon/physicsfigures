@@ -63,6 +63,64 @@ export const label = (def: Label): Field<Label> => ({
 type Spec = Record<string, Field<any>>
 export type SettingsOf<S extends Spec> = { -readonly [K in keyof S]: S[K]['default'] }
 
+// In a page address a list is one key: rows split by ";", a row's fields by
+// ",", in the order the row declares them, with trailing fields left off when
+// they're the row's defaults. So new fields go at the end of a row, and old
+// links keep working. Inside a field, "\" escapes a comma, semicolon or "\".
+const escapePart = (s: string) => s.replace(/[\\,;]/g, (c) => `\\${c}`)
+
+function splitRows(raw: string): string[][] {
+  const rows: string[][] = [[]]
+  let part = ''
+  for (let i = 0; i < raw.length; i++) {
+    const c = raw[i]
+    if (c === '\\' && i + 1 < raw.length) part += raw[++i]
+    else if (c === ',') (rows.at(-1)!.push(part), (part = ''))
+    else if (c === ';') (rows.at(-1)!.push(part), rows.push([]), (part = ''))
+    else part += c
+  }
+  rows.at(-1)!.push(part)
+  return rows
+}
+
+/**
+ * A list of up to `max` rows, each with the fields in `row`, like a Free Body
+ * Diagram's forces. An empty list is written as an empty value, so a link can
+ * say "none" when the default list has rows.
+ */
+export function list<const S extends Spec>(row: S, def: SettingsOf<S>[], max: number): Field<SettingsOf<S>[]> {
+  const fields = Object.entries(row)
+  const cleanRow = (v: unknown) => {
+    const r = v as Record<string, unknown>
+    return Object.fromEntries(fields.map(([key, f]) => [key, f.clean(r[key])])) as SettingsOf<S>
+  }
+  const rowDefaults = fields.map(([, f]) => f.encode(f.default))
+  return {
+    default: def,
+    clean: (v) =>
+      Array.isArray(v)
+        ? v
+            .filter((r) => r && typeof r === 'object')
+            .slice(0, max)
+            .map(cleanRow)
+        : structuredClone(def),
+    encode: (rows) =>
+      rows
+        .map((r) => {
+          const parts = fields.map(([key, f]) => f.encode(r[key]))
+          while (parts.length > 1 && parts.at(-1) === rowDefaults[parts.length - 1]) parts.pop()
+          return parts.map(escapePart).join(',')
+        })
+        .join(';'),
+    decode: (raw) =>
+      raw === ''
+        ? []
+        : splitRows(raw).map((parts) =>
+            Object.fromEntries(fields.map(([key, f], i) => [key, i < parts.length ? f.decode(parts[i]) : f.default])),
+          ),
+  }
+}
+
 export function defineSettings<const S extends Spec>(spec: S) {
   type Settings = SettingsOf<S>
   const entries = Object.entries(spec) as [keyof Settings & string, Field<any>][]
