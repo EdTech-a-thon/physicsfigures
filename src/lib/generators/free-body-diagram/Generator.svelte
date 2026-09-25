@@ -1,7 +1,7 @@
 <script lang="ts">
   // The Free Body Diagram Generator: the body and its forces on the left, the
   // figure on the right. Settings live in the page address.
-  import { Box, MoveUpRight, Plus, Trash2 } from '@lucide/svelte'
+  import { Box, Gauge, MoveUpRight, Plus, Trash2 } from '@lucide/svelte'
   import Choice from '$lib/shared/Choice.svelte'
   import { createGenerator } from '$lib/shared/generator.svelte'
   import GeneratorLayout from '$lib/shared/GeneratorLayout.svelte'
@@ -18,7 +18,17 @@
   const bodySummary = $derived(s.body === 'dot' ? 'dot' : `${s.body} · ${Math.round(s.bodySize * 100)}% size`)
   const forcesSummary = $derived(s.forces.map((f) => shown(f.label)).join(', ') || 'none')
 
-  /** The quick picks for a force's direction. */
+  const MOTION = [
+    { key: 'velocity', angle: 'velocityAngle', label: 'velocityLabel', name: 'Velocity' },
+    { key: 'acceleration', angle: 'accelerationAngle', label: 'accelerationLabel', name: 'Acceleration' },
+  ] as const
+  const motionSummary = $derived(
+    MOTION.filter((m) => s[m.key])
+      .map((m) => `${m.name.toLowerCase()} ${s[m.angle]}°`)
+      .join(', ') || 'none',
+  )
+
+  /** The quick picks for a direction. */
   const DIRECTIONS = [
     [90, 'Up'],
     [270, 'Down'],
@@ -39,6 +49,22 @@
     }
   }
 </script>
+
+<!-- Which way a force or motion points: a slider and a box in degrees, with quick picks. -->
+{#snippet directionField(target: Record<string, any>, key: string, name: string)}
+  <div class="field">
+    Direction
+    <span class="slider">
+      <input type="range" min="0" max="359" bind:value={target[key]} aria-label="{name} direction" />
+      <span class="degrees"><input type="number" min="0" max="359" bind:value={target[key]} aria-label="{name} angle in degrees" />°</span>
+    </span>
+    <div class="segmented" role="group" aria-label="{name} quick directions">
+      {#each DIRECTIONS as [angle, label]}
+        <button type="button" class:on={target[key] === angle} aria-pressed={target[key] === angle} onclick={() => (target[key] = angle)}>{label}</button>
+      {/each}
+    </div>
+  </div>
+{/snippet}
 
 <GeneratorLayout title="Free Body Diagram Generator" {gen} filename="free-body-diagram">
   {#snippet controls()}
@@ -66,22 +92,7 @@
               <Trash2 size={17} />
             </button>
           </div>
-          <div class="field">
-            Direction
-            <span class="slider">
-              <input type="range" min="0" max="359" bind:value={force.angle} aria-label="Force {i + 1} direction" />
-              <span class="degrees">
-                <input type="number" min="0" max="359" bind:value={force.angle} aria-label="Force {i + 1} angle in degrees" />°
-              </span>
-            </span>
-            <div class="segmented" role="group" aria-label="Force {i + 1} quick directions">
-              {#each DIRECTIONS as [angle, name]}
-                <button type="button" class:on={s.forces[i]?.angle === angle} aria-pressed={s.forces[i]?.angle === angle} onclick={() => (force.angle = angle)}>
-                  {name}
-                </button>
-              {/each}
-            </div>
-          </div>
+          {@render directionField(force, 'angle', `Force ${i + 1}`)}
           <label class="field">
             Length
             <span class="slider">
@@ -117,6 +128,19 @@
         </div>
       </div>
     </Section>
+
+    <Section title="Motion" icon={Gauge} summary={motionSummary}>
+      <p class="note">Drawn beside the body, dashed, because velocity and acceleration aren't forces.</p>
+      {#each MOTION as m (m.key)}
+        <div class="motion">
+          <label class="check"><input type="checkbox" bind:checked={gen.settings[m.key]} /> {m.name}</label>
+          {#if s[m.key]}
+            {@render directionField(gen.settings, m.angle, m.name)}
+            <div class="field">Label <LabelField name="{m.name} label" bind:label={gen.settings[m.label]} /></div>
+          {/if}
+        </div>
+      {/each}
+    </Section>
   {/snippet}
 
   {#snippet figure(id)}
@@ -129,6 +153,7 @@
   .force-head { display: flex; align-items: center; justify-content: space-between; font-weight: 800; margin-bottom: 0.25rem; }
   .degrees { display: inline-flex; align-items: center; gap: 0.2rem; color: var(--muted); }
   .degrees input { width: 4.2rem; }
+  .motion + .motion { border-top: 1px solid var(--border); padding-top: 0.75rem; margin-top: 0.25rem; }
   .starters { display: flex; flex-wrap: wrap; gap: 0.4rem; }
   .starters button { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.35rem 0.65rem; font-size: 0.85rem; border-radius: 9px; }
 </style>

@@ -18,6 +18,9 @@ export const DOT_R = 6
 /** How far past the body's farthest corner an angle mark's arc is, and how much farther each further arc from the same line. */
 const ARC_GAP = 30
 const ARC_STEP = 24
+/** Velocity and acceleration: how long, and how far beside everything else. */
+const MOTION_LENGTH = 64
+const MOTION_GAP = 40
 const MARGIN = 18
 /** The smallest figure, so a body with one short force isn't a sliver. */
 const MIN_SIZE = 160
@@ -68,6 +71,8 @@ export interface FbdFigure {
     height: number
   }
   forces: FigureForce[]
+  /** Velocity and acceleration, beside the body. */
+  motion: LabeledVector<'velocity' | 'acceleration'>[]
   marks: AngleMark[]
   components: Components[]
   /** Every outermost point drawn, for fitting (and tests). */
@@ -108,6 +113,53 @@ function toEdge(kind: BodyKind, w: number, h: number, d: Point) {
   if (kind === 'dot') return DOT_R
   if (kind === 'ball') return h / 2
   return Math.min(Math.abs(d.x) > 1e-9 ? w / 2 / Math.abs(d.x) : Infinity, Math.abs(d.y) > 1e-9 ? h / 2 / Math.abs(d.y) : Infinity)
+}
+
+const bounds = (points: Point[]) => ({
+  left: Math.min(...points.map((p) => p.x)),
+  right: Math.max(...points.map((p) => p.x)),
+  top: Math.min(...points.map((p) => p.y)),
+  bottom: Math.max(...points.map((p) => p.y)),
+})
+
+/**
+ * Velocity and acceleration in a column beside the diagram (to its right, or
+ * its left when mirrored), a clear gap from the body and every force, each
+ * with its label beside it on the side away from the diagram or above it.
+ */
+function motionBeside(s: FbdSettings, around: ReturnType<typeof bounds>): LabeledVector<'velocity' | 'acceleration'>[] {
+  const wanted = [
+    ['velocity', s.velocity, s.velocityAngle, s.velocityLabel],
+    ['acceleration', s.acceleration, s.accelerationAngle, s.accelerationLabel],
+  ] as const
+  // Each one laid out around its own middle first.
+  const cells = wanted
+    .filter(([, on]) => on)
+    .map(([kind, , angle, label]) => {
+      const d = direction(drawnAngle(angle, s.mirror))
+      const half = MOTION_LENGTH / 2
+      const v = seg(pt(-d.x * half, -d.y * half), pt(d.x * half, d.y * half))
+      const gap = 12 + (labelWidth(label) / 2) * Math.abs(d.y) + 11 * Math.abs(d.x)
+      const away = s.mirror ? -1 : 1
+      const [labelAt] = ([1, -1] as const)
+        .map((side) => labelPoint(v, { at: 'middle', side, gap }))
+        .sort((a, b) => b.x * away - b.y - (a.x * away - a.y))
+      const box = bounds([pt(v.x1, v.y1), pt(v.x2, v.y2), ...boxCorners(labelBox(labelAt, label))])
+      return { kind, v, label, labelAt, box }
+    })
+  const total = cells.reduce((sum, c) => sum + c.box.bottom - c.box.top, 0) + 16 * Math.max(0, cells.length - 1)
+  let top = (around.top + around.bottom) / 2 - total / 2
+  return cells.map((c) => {
+    const dx = s.mirror ? around.left - MOTION_GAP - c.box.right : around.right + MOTION_GAP - c.box.left
+    const dy = top - c.box.top
+    top += c.box.bottom - c.box.top + 16
+    return {
+      kind: c.kind,
+      v: seg(pt(c.v.x1 + dx, c.v.y1 + dy), pt(c.v.x2 + dx, c.v.y2 + dy)),
+      label: c.label,
+      labelAt: pt(c.labelAt.x + dx, c.labelAt.y + dy),
+    }
+  })
 }
 
 /** The figure with the body's middle at (0, 0). */
@@ -184,31 +236,28 @@ function layout(s: FbdSettings): FbdFigure {
     }
   }
 
-  const extent = [
+  const diagram = [
     pt(-w / 2, -h / 2),
     pt(w / 2, h / 2),
     ...forces.flatMap((f) => [pt(f.v.x2, f.v.y2), ...boxCorners(labelBox(f.labelAt, f.label))]),
     ...marks.flatMap((m) => [pt(m.ref.x2, m.ref.y2), ...boxCorners(labelBox(m.labelAt, m.label))]),
     ...components.flatMap((c) => [...boxCorners(labelBox(c.xLabelAt, c.xLabel)), ...boxCorners(labelBox(c.yLabelAt, c.yLabel))]),
   ]
+  const motion = motionBeside(s, bounds(diagram))
+  const extent = [...diagram, ...motion.flatMap((m) => [pt(m.v.x1, m.v.y1), pt(m.v.x2, m.v.y2), ...boxCorners(labelBox(m.labelAt, m.label))])]
 
   return {
     width: 0,
     height: 0,
     body: { kind, size: s.bodySize, middle, at: pt(0, h / 2), width: w, height: h },
     forces,
+    motion,
     marks,
     components,
     extent,
   }
 }
 
-const bounds = (points: Point[]) => ({
-  left: Math.min(...points.map((p) => p.x)),
-  right: Math.max(...points.map((p) => p.x)),
-  top: Math.min(...points.map((p) => p.y)),
-  bottom: Math.max(...points.map((p) => p.y)),
-})
 
 function shifted(f: FbdFigure, dx: number, dy: number): FbdFigure {
   const p = (q: Point) => pt(q.x + dx, q.y + dy)
@@ -217,6 +266,7 @@ function shifted(f: FbdFigure, dx: number, dy: number): FbdFigure {
     ...f,
     body: { ...f.body, middle: p(f.body.middle), at: p(f.body.at) },
     forces: f.forces.map((v) => ({ ...v, v: sg(v.v), labelAt: p(v.labelAt) })),
+    motion: f.motion.map((v) => ({ ...v, v: sg(v.v), labelAt: p(v.labelAt) })),
     marks: f.marks.map((m) => ({ ...m, ref: sg(m.ref), arc: { ...m.arc, from: p(m.arc.from), to: p(m.arc.to) }, labelAt: p(m.labelAt) })),
     components: f.components.map((c) => ({
       ...c,

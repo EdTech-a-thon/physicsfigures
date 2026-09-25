@@ -63,6 +63,13 @@ export const fbdSettings = defineSettings({
   body: choice('dot', ['dot', 'block', 'ball', 'cart']),
   bodySize: number(1, 0.5, 2),
   forces: list(force, [starterForce(STARTERS[0]), starterForce(STARTERS[1])], MAX_FORCES),
+  /** Velocity and acceleration, drawn beside the body, never on it: they aren't forces. */
+  velocity: bool(false),
+  velocityAngle: int(0, 0, 359),
+  velocityLabel: label({ mode: 'text', text: 'v' }),
+  acceleration: bool(false),
+  accelerationAngle: int(0, 0, 359),
+  accelerationLabel: label({ mode: 'text', text: 'a' }),
   mirror: bool(false),
   color: bool(false),
 })

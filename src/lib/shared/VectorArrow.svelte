@@ -13,8 +13,15 @@
 
   const width = $derived(style === 'component' ? 2 : VECTOR_WIDTH)
   const head = $derived(style === 'component' ? 10 : VECTOR_HEAD)
-  const dash = $derived(style === 'motion' ? '8 5' : style === 'component' ? '5 4' : undefined)
   const a = $derived(arrow(v, head))
+  // Dashes stretched a little so the shaft starts and ends on a whole dash.
+  const dash = $derived.by(() => {
+    if (style === 'force') return undefined
+    const [on, off] = style === 'motion' ? [8, 5] : [5, 4]
+    const length = Math.hypot(a.shaft.x2 - a.shaft.x1, a.shaft.y2 - a.shaft.y1)
+    const k = (length + off) / (Math.max(1, Math.round((length + off) / (on + off))) * (on + off))
+    return `${Math.round(on * k * 100) / 100} ${Math.round(off * k * 100) / 100}`
+  })
   const points = $derived(a.head.map((p) => `${p.x},${p.y}`).join(' '))
 </script>
 

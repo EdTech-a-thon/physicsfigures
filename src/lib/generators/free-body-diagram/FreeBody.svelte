@@ -58,6 +58,8 @@
   <!-- Forces start inside the body, so they need no white outline to stand clear of it. -->
   {#each fig.forces as f}<VectorArrow v={f.v} color={p.vector} halo={false} />{/each}
 
+  {#each fig.motion as m}<VectorArrow v={m.v} color={p.vector} style="motion" />{/each}
+
   <!-- The dot, or on an object the point every force starts from. -->
   <circle cx={fig.body.middle.x} cy={fig.body.middle.y} r={fig.body.kind === 'dot' ? DOT_R : 3.5} fill={p.ink} />
 
@@ -67,6 +69,9 @@
   {#each fig.components as c}
     <FigureLabel label={c.xLabel} x={c.xLabelAt.x} y={c.xLabelAt.y + baseline} size={LABEL_SIZE} color={p.component} />
     <FigureLabel label={c.yLabel} x={c.yLabelAt.x} y={c.yLabelAt.y + baseline} size={LABEL_SIZE} color={p.component} />
+  {/each}
+  {#each fig.motion as m}
+    <FigureLabel label={m.label} x={m.labelAt.x} y={m.labelAt.y + baseline} size={LABEL_SIZE} color={p.vector} />
   {/each}
   {#each fig.forces as f}
     <FigureLabel label={f.label} x={f.labelAt.x} y={f.labelAt.y + baseline} size={LABEL_SIZE} color={p.vector} />

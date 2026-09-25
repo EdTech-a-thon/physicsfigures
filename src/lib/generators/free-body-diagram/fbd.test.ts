@@ -182,6 +182,38 @@ describe('components', () => {
   })
 })
 
+describe('velocity and acceleration', () => {
+  const points = (f: ReturnType<typeof make>) =>
+    f.forces.flatMap((v) => [v.v.x2, v.labelAt.x]).concat(f.body.middle.x + f.body.width / 2)
+
+  test('sit beside everything else, clear of the body and every force', () => {
+    for (const body of ['dot', 'block'] as const) {
+      const f = make({ body, forces: STARTERS.map(starterForce), velocity: true, velocityAngle: 0, acceleration: true, accelerationAngle: 200 })
+      expect(f.motion.map((m) => m.kind)).toEqual(['velocity', 'acceleration'])
+      const rightmost = Math.max(...points(f))
+      for (const m of f.motion) expect(Math.min(m.v.x1, m.v.x2)).toBeGreaterThan(rightmost + 20)
+    }
+  })
+
+  test('point where they are set, and stack without overlapping', () => {
+    const f = make({ velocity: true, velocityAngle: 90, acceleration: true, accelerationAngle: 90 })
+    expect(angleOf(f.motion[0].v)).toBeCloseTo(90)
+    const [a, b] = f.motion
+    expect(Math.min(b.v.y1, b.v.y2)).toBeGreaterThan(Math.max(a.v.y1, a.v.y2))
+  })
+
+  test('go on the left when mirrored', () => {
+    const f = make({ mirror: true, velocity: true, velocityAngle: 30 })
+    const leftmost = Math.min(...f.forces.flatMap((v) => [v.v.x2, v.labelAt.x]))
+    expect(Math.max(f.motion[0].v.x1, f.motion[0].v.x2)).toBeLessThan(leftmost)
+    expect(angleOf(f.motion[0].v)).toBeCloseTo(150, 0)
+  })
+
+  test('none unless asked for', () => {
+    expect(make().motion).toEqual([])
+  })
+})
+
 describe('settings', () => {
   test('round-trip through the address, including an empty list', () => {
     for (const s of [
